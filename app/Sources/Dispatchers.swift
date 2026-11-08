@@ -12,7 +12,7 @@ enum Dispatchers {
         "togglegroup", "pseudo", "pin", "centerwindow", "submap", "exit", "forcerendererreload", "dpms",
         // HyprMac additions
         "omniwm", "omniwmctl", "focusapp", "layout", "reload", "overview", "balance", "sendshortcut",
-        "readingmode", "recordmode", "prompter",
+        "readingmode", "recordmode", "prompter", "reserve",
     ]
 
     /// Shows a short message: a pill on screen in the agent, a printed line in the CLI.
@@ -247,6 +247,8 @@ enum Dispatchers {
             Modes.recordMode(arg, config: { HyprConfig.load(path: Paths.config) })
         case "prompter":
             Modes.prompter(arg)
+        case "reserve":
+            Modes.reserve(arg, config: { HyprConfig.load(path: Paths.config) })
         default:
             Log.write("unknown dispatcher \(dispatcher)")
         }

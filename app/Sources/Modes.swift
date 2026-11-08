@@ -171,6 +171,51 @@ enum Modes {
         }
     }
 
+    // MARK: reserved room at a screen edge (`reserve, right 336 <display UUID>`)
+
+    /// Room an app's own panel keeps at a screen's edge, like Hyprland's `addreserved`; tiled windows stay out
+    /// of it. One line per display: "<display UUID> <top> <right> <bottom> <left>".
+    static var reserveState: String { Paths.stateDir + "/reserved" }
+
+    static func reserved() -> [String: (top: Double, right: Double, bottom: Double, left: Double)] {
+        guard let s = try? String(contentsOfFile: reserveState, encoding: .utf8) else { return [:] }
+        var out: [String: (top: Double, right: Double, bottom: Double, left: Double)] = [:]
+        for line in s.split(separator: "\n") {
+            let f = line.split(whereSeparator: \.isWhitespace)
+            let n = f.dropFirst().compactMap { Double($0) }
+            if f.count == 5, n.count == 4 { out[String(f[0]).uppercased()] = (n[0], n[1], n[2], n[3]) }
+        }
+        return out
+    }
+
+    /// `side points [display UUID]`: keep `points` free at that edge of the display (the focused window's screen
+    /// when no UUID is given); 0 frees it again. Recorder overlays call this as they show and hide.
+    static func reserve(_ arg: String, config: () -> HyprConfig) {
+        let f = arg.split(whereSeparator: { $0 == "," || $0.isWhitespace }).map(String.init)
+        let sides = ["top", "right", "bottom", "left"]
+        guard f.count >= 2, let side = sides.firstIndex(of: f[0].lowercased()), let points = Double(f[1]), points >= 0 else {
+            Dispatchers.notify?("reserve: use `reserve, right 336` or `reserve, right 0`")
+            return
+        }
+        let frame = FocusedWindow.current()?.frame
+        let screen = frame.flatMap({ Screens.screen(for: $0) }) ?? NSScreen.main
+        guard let uuid = (f.count >= 3 ? f[2] : screen.flatMap(Screens.uuid))?.uppercased() else { return }
+        var all = reserved()
+        var r = all[uuid] ?? (0, 0, 0, 0)
+        switch side {
+        case 0: r.top = points
+        case 1: r.right = points
+        case 2: r.bottom = points
+        default: r.left = points
+        }
+        all[uuid] = r
+        let lines = all.filter { $0.value != (0, 0, 0, 0) }.sorted { $0.key < $1.key }
+            .map { k, v in ([k] + [v.top, v.right, v.bottom, v.left].map { String(format: "%.0f", $0) }).joined(separator: " ") }
+        if lines.isEmpty { try? FileManager.default.removeItem(atPath: reserveState) }
+        else { try? (lines.joined(separator: "\n") + "\n").write(toFile: reserveState, atomically: true, encoding: .utf8) }
+        OmniSettings.apply(config())
+    }
+
     // MARK: record mode (Hyper+R)
 
     /// OmniWM gap values for the stage, saved while record mode is on: outer top, right, bottom, left.
