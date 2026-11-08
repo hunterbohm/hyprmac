@@ -5,8 +5,9 @@ import ApplicationServices
 // which covers the whole screen, 16 points below the menu bar, or below the top of the screen when the menu
 // bar hides itself. OmniWM's bar sits on top of that spot and cut the banners off. HyprMac moves that window
 // down over Accessibility so the first banner sits the same 16 points below the bar. Notification Center's
-// other windows (desktop widgets) stay put. macOS puts the window back when its panel closes or the screens
-// change, so this checks every two seconds.
+// other windows (desktop widgets) stay put. It makes that window when a banner comes and drops it when the
+// last one goes, so HyprMac moves it the moment it appears, and checks every two seconds for the times macOS
+// puts it back (its panel closing, screens changing).
 
 enum Banners {
     private static let queue = DispatchQueue(label: "hyprmac.banners")
@@ -34,6 +35,8 @@ enum Banners {
     private static var bannerTop: [String: CGFloat] = [:]
     private static var lastSeen: [String: CGFloat] = [:]
     private static var moved: [String: CGFloat] = [:]
+    private static var observer: AXObserver?      // main thread only
+    private static var observedPid: pid_t = 0
 
     static func start() {
         guard timer == nil else { return }
@@ -58,6 +61,7 @@ enum Banners {
 
     private static func tick() {
         if Date().timeIntervalSince(screensRead) > 30 { screens = readScreens(); screensRead = Date() }
+        if let pid = centerPid() { watch(pid) }
         for d in dialogs() {
             let key = d.screen.key
             let (panelOpen, firstBanner) = look(inside: d.element)
@@ -81,9 +85,7 @@ enum Banners {
     /// Notification Center's full-screen windows (subrole AXSystemDialog), each with the screen it covers.
     /// It may already be moved down, so the screen is matched by left edge and size.
     private static func dialogs() -> [Dialog] {
-        guard !screens.isEmpty,
-              let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui").first?.processIdentifier
-        else { return [] }
+        guard !screens.isEmpty, let pid = centerPid() else { return [] }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
         var out: [Dialog] = []
@@ -95,6 +97,28 @@ enum Banners {
         }
         return out
     }
+
+    private static func centerPid() -> pid_t? {
+        NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui").first?.processIdentifier
+    }
+
+    /// Runs a check as soon as Notification Center makes a window. Set up again when it restarts.
+    private static func watch(_ pid: pid_t) {
+        guard pid != observedPid else { return }
+        observedPid = pid
+        DispatchQueue.main.async {
+            if let old = observer { CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(old), .commonModes) }
+            observer = nil
+            var made: AXObserver?
+            guard AXObserverCreate(pid, { _, _, _, _ in Banners.windowAppeared() }, &made) == .success, let o = made,
+                  AXObserverAddNotification(o, AXUIElementCreateApplication(pid), kAXWindowCreatedNotification as CFString, nil) == .success
+            else { queue.async { observedPid = 0 }; return }   // try again on the next check
+            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .commonModes)
+            observer = o
+        }
+    }
+
+    private static func windowAppeared() { queue.async { tick() } }
 
     /// Whether Notification Center's panel is open in this window, and the top of the list banners sit in.
     /// The list's top stays put; a banner's own frame grows when the pointer shows its close button.
