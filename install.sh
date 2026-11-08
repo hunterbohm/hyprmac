@@ -106,7 +106,14 @@ else
   cp "$REPO/bar/battery-details/init.luau" "$REPO/bar/battery-details/settings.toml" "$WIDGET_DIR/"
   touch "$WIDGET_DIR/.hyprmac"
 fi
-# Bar layout: OmniWM on the left of the menu bar, the Mac's own menu bar icons on the right.
+# Tray: your menu bar apps inside OmniWM's bar (HyprMac supplies the list and the clicks).
+TRAY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/tray"
+rm -rf "$TRAY_DIR/icons"; mkdir -p "$TRAY_DIR"
+cp "$REPO/bar/tray/init.luau" "$TRAY_DIR/"
+touch "$TRAY_DIR/.hyprmac"
+# Let macOS know HyprMac opens hyprmac:// links (the tray's clicks).
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
+# Bar layout: the tray next to the volume and Wi-Fi.
 SHELL_TOML="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/shell.toml"
 if [[ ! -f "$SHELL_TOML" ]] || grep -q '^# HyprMac bar layout' "$SHELL_TOML"; then
   cp "$REPO/bar/shell.toml" "$SHELL_TOML"
@@ -172,6 +179,11 @@ fi
 if pgrep -x AeroSpace >/dev/null; then
   warn "AeroSpace is running. Two tiling managers fight over windows; quit it with: osascript -e 'quit app \"AeroSpace\"'"
 fi
+for hider in Thaw Ice Bartender\ 5 Bartender\ 6; do
+  if pgrep -x "$hider" >/dev/null; then
+    warn "$hider is running. OmniWM's bar now shows every menu bar app itself; quit $hider so it stops moving them: osascript -e 'quit app \"$hider\"'"
+  fi
+done
 if pgrep -x yabai >/dev/null; then
   warn "yabai is running. Stop it before using OmniWM: yabai --stop-service"
 fi

@@ -25,7 +25,7 @@ The installer:
 - builds the agent into `~/Applications/HyprMac.app`;
 - adds `hyprmac` and `hyprctl` to `~/.local/bin`;
 - copies the default config, unless you already have one;
-- puts HyprMac's battery panel in OmniWM's bar;
+- puts HyprMac's battery panel and menu bar apps tray in OmniWM's bar;
 - starts everything at login.
 
 macOS then asks for two permissions in System Settings → Privacy & Security:
@@ -98,8 +98,13 @@ devices, as in Apple's Batteries widget.
 - **AirPods, keyboard, mouse**: Bluetooth devices that are connected and report a battery. AirPods show
   left, right and case. The first time, the panel has a button to give OmniWM Bluetooth access.
 
-OmniWM's bar covers the macOS menu bar, so the icons of other menu bar apps are hidden. OmniWM can
-show them inside its bar from macOS 27 on.
+**Menu bar apps** (Tailscale, CleanShot, Bitwarden and so on) sit in OmniWM's bar next to the volume and
+Wi-Fi, like Waybar's tray. OmniWM's bar covers the macOS menu bar, so HyprMac finds each app's menu bar
+item, shows the app's icon in the bar, and opens the app's real menu when you click it. The menu opens
+where the app's hidden menu bar item sits, on the right side of the screen.
+- Leave an app out with `tray_hide = Google Drive, Another App` in `hyprmac { }` (app names or bundle IDs).
+- Quit menu bar hiders such as Thaw, Ice or Bartender: the bar shows every item itself.
+- Workspaces with no windows don't show in the bar, which leaves room for the tray on a MacBook.
 
 ## Config
 

@@ -43,8 +43,10 @@ fi
 SHELL_TOML="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/shell.toml"
 if [[ -f "$SHELL_TOML" ]] && grep -q '^# HyprMac bar layout' "$SHELL_TOML"; then
   rm -f "$SHELL_TOML"
-  say "Put OmniWM's full-width bar back"
+  say "Put OmniWM's own bar layout back"
 fi
+TRAY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/tray"
+[[ -f "$TRAY_DIR/.hyprmac" ]] && rm -rf "$TRAY_DIR" && say "Removed the menu bar apps tray from OmniWM's bar"
 rm -rf "$SHARE_DIR"
 
 # Put back the OmniWM settings from before HyprMac changed them (OmniWM's own shortcuts were off).

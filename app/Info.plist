@@ -11,6 +11,11 @@
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleURLTypes</key>
+  <array><dict>
+    <key>CFBundleURLName</key><string>com.hunterbohm.hyprmac</string>
+    <key>CFBundleURLSchemes</key><array><string>hyprmac</string></array>
+  </dict></array>
   <key>NSHumanReadableCopyright</key><string>MIT</string>
 </dict>
 </plist>

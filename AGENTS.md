@@ -15,8 +15,10 @@ dispatcher through OmniWM's `omniwmctl`. It also writes the look-and-feel settin
 | `app/Sources/Dispatchers.swift` | Hyprland dispatcher → `omniwmctl` translation |
 | `app/Sources/OmniSettings.swift` | line-based TOML edits of OmniWM's settings (gaps, borders, animations, workspaces) |
 | `app/Sources/Modes.swift` | reading mode, record mode (recording stage) and prompter, ported from Hunter's AeroSpace scripts |
+| `app/Sources/Tray.swift` | menu bar apps in OmniWM's bar: finds items over Accessibility (`AXExtrasMenuBar`), publishes `hyprmac_tray`, presses an item on `hyprmac://tray/<bundle>/<index>`. Items of a hidden menu bar can't be captured, so the widget shows app icons |
 | `app/Sources/main.swift` | daemon (reload on save, SIGHUP, error bar, submap pill) and the `hyprmac` / `hyprctl` CLI |
 | `bar/battery-details/` | OmniWM's battery widget with a Devices section (iPhone, AirPods, keyboard); installed into `~/.config/omniwm/shell/widgets/` |
+| `bar/tray/`, `bar/shell.toml` | the tray widget and the bar layout that places it; installed into `~/.config/omniwm/shell/` |
 | `bar/device-batteries.py` | login agent, every minute: iPhone battery over Wi-Fi via libimobiledevice → `omniwmctl shell set hyprmac_devices` |
 | `config/hyprland.conf` | the default config, shaped after Hunter's AeroSpace keys |
 | `install.sh`, `uninstall.sh` | install and remove everything, including the login agents |

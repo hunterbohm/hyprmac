@@ -123,6 +123,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
 
         omniSettingsSeen = FileManager.default.fileExists(atPath: Paths.omniSettings)
         reload(reason: "startup")
+        Tray.start(hide: trayHidden())
         runExecOnce()
         installTap()
 
@@ -174,7 +175,19 @@ final class Daemon: NSObject, NSApplicationDelegate {
         let changed = OmniSettings.apply(c)
         Log.write("loaded config (\(reason)): \(c.binds.count) binds, \(c.errors.count) errors\(changed != nil ? ", OmniWM updated" : "")")
         for cmd in c.exec { Dispatchers.exec(cmd) }   // Hyprland runs `exec` lines at start and on every reload
+        if reason != "startup" { Tray.start(hide: trayHidden()) }
         showErrors()
+    }
+
+    /// `tray_hide = Google Drive, com.example.app` in `hyprmac { }`: menu bar apps to leave out of the bar.
+    func trayHidden() -> [String] {
+        (config.setting("hyprmac:tray_hide") ?? "").split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+
+    /// The bar's tray widget opens hyprmac://tray/<bundle>/<index> when you click a menu bar app.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        urls.forEach(Tray.handle)
     }
 
     func showErrors() {
