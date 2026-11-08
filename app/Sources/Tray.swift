@@ -96,8 +96,6 @@ enum Tray {
         guard let data = try? JSONSerialization.data(withJSONObject: list, options: [.sortedKeys]),
               let json = String(data: data, encoding: .utf8), json != lastPublished else { return }
         if Dispatchers.omniwmctl(["shell", "set", "hyprmac_tray", json], quiet: true).ok { lastPublished = json }
-        // The notifications panel's Clear All and × open this link (see Notifications).
-        Dispatchers.omniwmctl(["shell", "set", "hyprmac_notifications", Notifications.link], quiet: true)
     }
 
     // MARK: clicks

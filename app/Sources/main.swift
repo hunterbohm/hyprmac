@@ -95,6 +95,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
     var permissionTimer: Timer?
     var permissionTries = 0
     var hupSource: DispatchSourceSignal?
+    var termSource: DispatchSourceSignal?
     var omniSettingsSeen = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -120,11 +121,18 @@ final class Daemon: NSObject, NSApplicationDelegate {
         src.setEventHandler { [weak self] in self?.reload(reason: "hyprctl reload") }
         src.resume()
         hupSource = src
+        // Stopping the agent (launchd sends SIGTERM) gives Notification Center's window back its own place.
+        signal(SIGTERM, SIG_IGN)
+        let term = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        term.setEventHandler { Banners.restore(); exit(0) }
+        term.resume()
+        termSource = term
 
         omniSettingsSeen = FileManager.default.fileExists(atPath: Paths.omniSettings)
         reload(reason: "startup")
         Tray.start(hide: trayHidden())
         Notifications.startWatching()
+        Banners.start()
         runExecOnce()
         installTap()
 
@@ -134,6 +142,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self else { return }
             OmniSettings.apply(self.config)
+            Banners.screensChanged()
         }
     }
 
@@ -189,7 +198,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
     /// The bar's tray widget opens hyprmac://tray/<bundle>/<index> when you click a menu bar app.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme == "hyprmac" {
-            if url.host == "notifications" { Notifications.handle(url) } else { Tray.handle(url) }
+            Tray.handle(url)
         }
     }
 

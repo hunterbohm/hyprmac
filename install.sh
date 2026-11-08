@@ -117,7 +117,7 @@ rm -rf "$TRAY_DIR/icons"; mkdir -p "$TRAY_DIR"
 cp "$REPO/bar/tray/init.luau" "$TRAY_DIR/"
 touch "$TRAY_DIR/.hyprmac"
 # Notifications: OmniWM's panel can't clear them on macOS 26 (it looks for a macOS 27 helper), so its Clear All
-# and x buttons open HyprMac, which clears them. That edits OmniWM's own widget, copied fresh each install.
+# and x buttons hide them in the bar instead. That edits OmniWM's own widget, copied fresh each install.
 NOTIFY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/notifications"
 OMNIWMCTL="$(command -v omniwmctl || echo /Applications/OmniWM.app/Contents/MacOS/omniwmctl)"
 if [[ -d "$NOTIFY_DIR" && ! -f "$NOTIFY_DIR/.hyprmac" ]]; then
@@ -129,7 +129,7 @@ else
     touch "$NOTIFY_DIR/.hyprmac"
   else
     rm -rf "$NOTIFY_DIR"
-    warn "Couldn't point the bar's notification Clear All at HyprMac; it may fail on macOS 26"
+    warn "Couldn't patch the bar's notification Clear All; it may fail on macOS 26"
   fi
 fi
 # Let macOS know HyprMac opens hyprmac:// links (the tray's clicks).
