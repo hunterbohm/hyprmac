@@ -21,7 +21,7 @@ dispatcher through OmniWM's `omniwmctl`. It also writes the look-and-feel settin
 | `bar/notifications-patch.py` | install-time edit of OmniWM's own notifications widget (GPL, so ejected into the user's config and patched there, never copied into this repo): Clear All and × hide notifications in the bar, keeping their ids in the widget's `omniwm.store`, and a `trigger` re-reads on `hyprmac-refresh`. Clearing through Notification Center's panel was dropped: it flashed open and missed notifications it doesn't list. Marked by `.hyprmac` in the widget folder; a user's own copy is left alone |
 | `app/Sources/main.swift` | daemon (reload on save, SIGHUP, error bar, submap pill) and the `hyprmac` / `hyprctl` CLI |
 | `bar/battery-details/` | OmniWM's battery widget with a Devices section (iPhone, AirPods, keyboard); installed into `~/.config/omniwm/shell/widgets/` |
-| `bar/tray/`, `bar/shell.toml` | the tray widget and the bar layout that places it; installed into `~/.config/omniwm/shell/` |
+| `bar/tray/`, `bar/shell.toml` | the tray widget and the bar layout that places it; installed into `~/.config/omniwm/shell/`. The widget keeps pinned item ids (`<bundle>/<index>`) in its OmniWM store; the rest go in a drawer that opens on hover |
 | `bar/device-batteries.py` | login agent, every minute: iPhone battery over Wi-Fi via libimobiledevice → `omniwmctl shell set hyprmac_devices` |
 | `config/hyprland.conf` | the default config, shaped after Hunter's AeroSpace keys |
 | `install.sh`, `uninstall.sh` | install and remove everything, including the login agents |

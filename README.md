@@ -109,6 +109,10 @@ where the app's hidden menu bar item sits, on the right side of the screen you c
   another screen, HyprMac first focuses that screen's window, or clicks its bare desktop when it has none,
   so the menu opens there.
 - When OmniWM restarts (its setup guide does that), HyprMac sends the list again within a few seconds.
+- Like Omarchy's tray, apps sit in a drawer behind a `‹` arrow until you pin them. Point at the arrow and
+  the drawer slides open to its left; it closes a moment after the pointer leaves. Right-click an app to
+  pin it next to the arrow, and right-click a pinned app to put it back in the drawer. Pins are kept across
+  restarts; apps you haven't pinned, new ones included, start in the drawer.
 - Leave an app out with `tray_hide = Google Drive, Another App` in `hyprmac { }` (app names or bundle IDs).
 - Quit menu bar hiders such as Thaw, Ice or Bartender: the bar shows every item itself.
 - Workspaces with no windows don't show in the bar, which leaves room for the tray on a MacBook.
