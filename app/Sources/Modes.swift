@@ -135,12 +135,21 @@ enum Modes {
     }
 
     /// The recording stage: a box of `stage` size centered where tiled windows go on the screen.
+    /// A stage too big for the screen shrinks to the largest box of the same shape inside the normal
+    /// 10-point gaps, so record mode works at any display setting (2134×1200 fills the ultrawide at
+    /// "looks like 3200×1350"; at 2560×1080 it doesn't fit).
     static func stageRect(_ stage: CGSize, on screen: NSScreen) -> CGRect? {
         let u = Screens.usableFrame(screen)
-        guard stage.width <= u.width, stage.height <= u.height else { return nil }
-        return CGRect(x: u.minX + ((u.width - stage.width) / 2).rounded(.down),
-                      y: u.minY + ((u.height - stage.height) / 2).rounded(.down),
-                      width: stage.width, height: stage.height)
+        guard stage.width > 0, stage.height > 0 else { return nil }
+        var size = stage
+        if stage.width > u.width || stage.height > u.height {
+            let scale = min((u.width - 20) / stage.width, (u.height - 20) / stage.height)
+            guard scale > 0 else { return nil }
+            size = CGSize(width: (stage.width * scale).rounded(.down), height: (stage.height * scale).rounded(.down))
+        }
+        return CGRect(x: u.minX + ((u.width - size.width) / 2).rounded(.down),
+                      y: u.minY + ((u.height - size.height) / 2).rounded(.down),
+                      width: size.width, height: size.height)
     }
 
     // MARK: reading mode (⌥⇧F)
@@ -194,7 +203,8 @@ enum Modes {
         let gaps = [top, v.maxX - rect.maxX, v.maxY - rect.maxY, rect.minX - v.minX].map { String(format: "%.0f", $0) }
         try? gaps.joined(separator: " ").write(toFile: recordState, atomically: true, encoding: .utf8)
         OmniSettings.apply(config())
-        Dispatchers.notify?("Record mode on: \(Int(stage.width))×\(Int(stage.height)) stage")
+        let shrunk = rect.size != stage ? " (\(Int(stage.width))×\(Int(stage.height)) is too big for this screen)" : ""
+        Dispatchers.notify?("Record mode on: \(Int(rect.width))×\(Int(rect.height)) stage\(shrunk)")
     }
 
     // MARK: prompter (Hyper+P)
