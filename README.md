@@ -104,7 +104,10 @@ devices, as in Apple's Batteries widget.
 **Menu bar apps** (Tailscale, CleanShot, Bitwarden and so on) sit in OmniWM's bar next to the volume and
 Wi-Fi, like Waybar's tray. OmniWM's bar covers the macOS menu bar, so HyprMac finds each app's menu bar
 item, shows the app's icon in the bar, and opens the app's real menu when you click it. The menu opens
-where the app's hidden menu bar item sits, on the right side of the screen.
+where the app's hidden menu bar item sits, on the right side of the screen you clicked.
+- macOS keeps menu bar items only on the screen whose menu bar is active. When you click the tray on
+  another screen, HyprMac first focuses that screen's window, or clicks its bare desktop when it has none,
+  so the menu opens there.
 - When OmniWM restarts (its setup guide does that), HyprMac sends the list again within a few seconds.
 - Leave an app out with `tray_hide = Google Drive, Another App` in `hyprmac { }` (app names or bundle IDs).
 - Quit menu bar hiders such as Thaw, Ice or Bartender: the bar shows every item itself.

@@ -15,7 +15,7 @@ dispatcher through OmniWM's `omniwmctl`. It also writes the look-and-feel settin
 | `app/Sources/Dispatchers.swift` | Hyprland dispatcher → `omniwmctl` translation |
 | `app/Sources/OmniSettings.swift` | line-based TOML edits of OmniWM's settings (gaps, borders, animations, workspaces). Per-screen top gaps go in `[[monitorGapOverrides]]` rows whose `id` is derived from the display UUID (`gapRowId`); HyprMac only replaces rows with that id |
 | `app/Sources/Modes.swift` | reading mode, record mode (recording stage) and prompter, ported from Hunter's AeroSpace scripts |
-| `app/Sources/Tray.swift` | menu bar apps in OmniWM's bar: finds items over Accessibility (`AXExtrasMenuBar`), publishes `hyprmac_tray`, presses an item on `hyprmac://tray/<bundle>/<index>`. Items of a hidden menu bar can't be captured, so the widget shows app icons |
+| `app/Sources/Tray.swift` | menu bar apps in OmniWM's bar: finds items over Accessibility (`AXExtrasMenuBar`), publishes `hyprmac_tray`, presses an item on `hyprmac://tray/<bundle>/<index>`, first making the clicked screen's menu bar the active one (macOS 26 keeps the items, drawn by Control Center, only there). Items of a hidden menu bar can't be captured, so the widget shows app icons |
 | `app/Sources/main.swift` | daemon (reload on save, SIGHUP, error bar, submap pill) and the `hyprmac` / `hyprctl` CLI |
 | `bar/battery-details/` | OmniWM's battery widget with a Devices section (iPhone, AirPods, keyboard); installed into `~/.config/omniwm/shell/widgets/` |
 | `bar/tray/`, `bar/shell.toml` | the tray widget and the bar layout that places it; installed into `~/.config/omniwm/shell/` |
