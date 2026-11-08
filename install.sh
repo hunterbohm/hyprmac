@@ -91,7 +91,7 @@ if [[ ! -f "$OMNI_SETTINGS" ]]; then
   say "Starting OmniWM once to create its settings"
   open -a OmniWM
   for _ in $(seq 1 60); do [[ -f "$OMNI_SETTINGS" ]] && break; sleep 1; done
-  [[ -f "$OMNI_SETTINGS" ]] || warn "OmniWM has not written its settings yet; finish its permission screen, then run this again"
+  [[ -f "$OMNI_SETTINGS" ]] || warn "OmniWM is waiting on its permission window; finish it there and HyprMac applies its settings on its own"
 fi
 [[ -f "$OMNI_SETTINGS" ]] && "$BIN_DIR/hyprmac" apply >/dev/null || true
 
@@ -151,6 +151,8 @@ launchctl bootstrap "gui/$uid" "$AGENTS/$LABEL.plist"
 say "Waiting for permissions (System Settings → Privacy & Security)"
 echo "    • Accessibility: turn on OmniWM and HyprMac"
 echo "    • Input Monitoring: turn on OmniWM"
+echo "    • Screen Recording (optional): turn on OmniWM for window previews in overview"
+echo "    Then press Continue in OmniWM's own permission window."
 (( REBUILT == 1 )) && echo "    (HyprMac was rebuilt, so macOS may ask for its Accessibility switch again)"
 ok_agent=0 ok_omni=0
 for _ in $(seq 1 $(( WAIT ? 180 : 3 ))); do
@@ -170,5 +172,7 @@ Done. Super is your Option (⌥) key.
   ⌥ 1-9, 0     workspace           ⌥ ⇧ 1-9    send window to workspace
   ⌥ F          fullscreen          ⌥ V        float / tile
   ⌥ /          flip split          ⌥ R        resize mode (HJKL, Esc)
+  ⌥ ⇧ F        reading column      ⌥ E        Finder window
+  Hyper R      record stage        Hyper P    prompter beside the stage
 Edit ~/.config/hyprmac/hyprland.conf; saving applies it. `hyprctl binds` lists every key.
 DONE

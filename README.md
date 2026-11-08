@@ -32,7 +32,9 @@ macOS then asks for two permissions in System Settings → Privacy & Security:
 - **Accessibility**: turn on OmniWM and HyprMac.
 - **Input Monitoring**: turn on OmniWM.
 
-The installer waits until both are on. Running it again is safe: it rebuilds only when the source
+OmniWM also shows its own permission window the first time. Screen Recording is optional there and
+gives overview its window previews. Press Continue, and HyprMac applies its settings by itself. The
+installer waits until both are on. Running it again is safe: it rebuilds only when the source
 changed, so macOS keeps HyprMac's permission.
 
 Quit AeroSpace or yabai first, because two tiling managers fight over the same windows.
@@ -49,7 +51,7 @@ CTRL is Control. You can also name a Mac key directly with `OPTION`, `COMMAND`, 
 | Keys | Does |
 |---|---|
 | ⌥ Return | new Ghostty window |
-| ⌥ ⇧ Return / ⌥ ⇧ F | browser / Finder |
+| ⌥ ⇧ Return / ⌥ E | browser / new Finder window |
 | ⌥ B C T O D | jump to Helium, Codex, Ghostty, Obsidian, Vesktop (opens the app if it has no window) |
 | ⌥ H J K L | move focus |
 | ⌥ ⇧ H J K L | move the window |
@@ -60,6 +62,7 @@ CTRL is Control. You can also name a Mac key directly with `OPTION`, `COMMAND`, 
 | ⌥ Tab, ⌥ scroll | previous workspace, next or previous workspace |
 | ⌥ W | close the window |
 | ⌥ F | fullscreen |
+| ⌥ ⇧ F | reading mode: float the window as a centered column; again to tile it |
 | ⌥ V | float or tile |
 | ⌥ / | flip the split |
 | ⌥ , | even out the sizes |
@@ -72,8 +75,16 @@ CTRL is Control. You can also name a Mac key directly with `OPTION`, `COMMAND`, 
 | ⌃ ⌥ Space | command palette |
 | ⌥ + left drag / right drag | move / resize a window |
 | ⌃ ⌥ J K, ⌃ ⌥ ⇧ J K | focus the next screen, send the window to the next screen |
+| Hyper R | record mode: tile everything inside a centered 2134×1200 stage, border off; again to stop |
+| Hyper P | prompter: float the focused window (an Obsidian note) in the margin right of the stage |
+| Hyper L | your theme switch |
+
+Hyper is ⌘⌃⌥⇧ held together. Record mode and the prompter end when the agent restarts.
 
 `hyprctl binds` lists every key in your config.
+
+Gaps: 10 points when another screen is connected, none on the MacBook screen alone
+(`laptop_gaps = false` in `hyprmac { }`). A lone window keeps its gaps, as in Hyprland.
 
 ## Config
 
@@ -87,7 +98,8 @@ Supported Hyprland syntax:
   `bindd` takes a description.
 - `submap`, `unbind`, and `workspace = N, monitor:..., layout:..., name:...`.
 - These sections:
-  - `general`: gaps, borders, gradient colors, layout.
+  - `general`: gaps (`gaps_out` takes one value or top, right, bottom, left), borders, gradient colors,
+    layout.
   - `animations`: `enabled`, plus HyprMac's `speed`.
   - `input`: `follow_mouse`.
   - `dwindle`: `split_width_multiplier`, `smart_split`, `default_split_ratio`.
@@ -108,6 +120,7 @@ Dispatchers:
   - `overview`
   - `balance`
   - `sendshortcut, MODS, key`
+  - `readingmode [max width]`, `recordmode, WxH`, `prompter, WxH`
   - `omniwm, <any omniwmctl command>`
 - **Ignored, with a note in the log** (macOS has no match): `pseudo`, `pin`, `togglegroup`, `exit`.
 

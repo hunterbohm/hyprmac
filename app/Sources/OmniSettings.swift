@@ -185,6 +185,41 @@ enum OmniSettings {
         return first + parts.dropFirst().map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
     }
 
+    /// Hyprland's gaps_out: one value, or top, right, bottom, left (two or three values work like CSS).
+    static func parseGapsOut(_ text: String) -> (top: Double, right: Double, bottom: Double, left: Double)? {
+        let n = text.split(whereSeparator: { $0 == "," || $0 == " " }).compactMap { Double($0) }.map { max(0, $0) }
+        switch n.count {
+        case 1: return (n[0], n[0], n[0], n[0])
+        case 2: return (n[0], n[1], n[0], n[1])
+        case 3: return (n[0], n[1], n[2], n[1])
+        case 4...: return (n[0], n[1], n[2], n[3])
+        default: return nil
+        }
+    }
+
+    /// OmniWM skips a settings change that lands while it is still starting, and then keeps IPC off.
+    /// If it is running but not answering a few seconds after we wrote its settings, restart it once.
+    static func ensureOmniWMPickedUp() {
+        let bundle = "com.barut.OmniWM"
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: bundle).isEmpty else { return }
+        for _ in 0..<10 {
+            if Dispatchers.omniwmctl(["ping"], quiet: true).ok { return }
+            usleep(500_000)
+        }
+        Log.write("OmniWM missed the new settings; restarting it")
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundle).forEach { $0.terminate() }
+        for i in 0..<40 {
+            if NSRunningApplication.runningApplications(withBundleIdentifier: bundle).isEmpty { break }
+            if i == 20 { NSRunningApplication.runningApplications(withBundleIdentifier: bundle).forEach { $0.forceTerminate() } }
+            usleep(250_000)
+        }
+        let open = Process()
+        open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        open.arguments = ["-g", "-b", bundle]
+        try? open.run()
+        open.waitUntilExit()
+    }
+
     static func menuBarHeight() -> Double {
         guard let s = NSScreen.screens.first else { return 24 }
         let h = s.frame.maxY - s.visibleFrame.maxY
@@ -206,18 +241,38 @@ enum OmniSettings {
         t.set("general", "hotkeysEnabled", "false")
         t.set("general", "ipcEnabled", "true")
 
-        if let gin = config.double("general:gaps_in") {
+        // Gaps: the config's, none on the laptop screen alone when `hyprmac:laptop_gaps = false`,
+        // or the recording stage while record mode is on (which also hides the border).
+        var gapsIn = config.double("general:gaps_in")
+        var gapsOut = config.setting("general:gaps_out").flatMap(parseGapsOut)
+        if config.bool("hyprmac:laptop_gaps") == false && Screens.laptopOnly() {
+            gapsIn = 0
+            gapsOut = (0, 0, 0, 0)
+        }
+        let stage = Modes.recordGaps()
+        if let gin = stage == nil ? gapsIn : 0 {
             t.set("gaps", "size", num(min(64, max(0, gin * 2))))
         }
-        if let gout = config.double("general:gaps_out") {
-            let out = max(0, gout)
-            t.set("gaps.outer", "left", num(out))
-            t.set("gaps.outer", "right", num(out))
-            t.set("gaps.outer", "bottom", num(out))
+        if let stage {
+            // Already in OmniWM's terms (top gap measured from the screen's top edge).
+            t.set("gaps.outer", "top", num(stage.top))
+            t.set("gaps.outer", "right", num(stage.right))
+            t.set("gaps.outer", "bottom", num(stage.bottom))
+            t.set("gaps.outer", "left", num(stage.left))
+        } else if let g = gapsOut {
+            t.set("gaps.outer", "left", num(g.left))
+            t.set("gaps.outer", "right", num(g.right))
+            t.set("gaps.outer", "bottom", num(g.bottom))
             // OmniWM measures the top gap from the screen edge and subtracts the menu bar first.
-            t.set("gaps.outer", "top", num(out + menuBarHeight()))
+            t.set("gaps.outer", "top", num(g.top + menuBarHeight()))
         }
-        if let bs = config.double("general:border_size") {
+        // A lone window keeps the gaps, as in Hyprland (OmniWM's "fill" would stretch it over them, and off
+        // the recording stage). A size bigger than any screen means "fill the gapped area".
+        t.set("dwindle", "singleWindowFit", "\"100000x100000\"")
+        t.set("niri", "singleWindowFit", "\"100000x100000\"")
+        if stage != nil {
+            t.set("borders", "enabled", "false")
+        } else if let bs = config.double("general:border_size") {
             t.set("borders", "enabled", bs > 0 ? "true" : "false")
             if bs > 0 { t.set("borders", "width", num(min(12, max(1, bs)))) }
         }

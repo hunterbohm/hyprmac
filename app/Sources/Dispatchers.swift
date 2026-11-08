@@ -12,7 +12,11 @@ enum Dispatchers {
         "togglegroup", "pseudo", "pin", "centerwindow", "submap", "exit", "forcerendererreload", "dpms",
         // HyprMac additions
         "omniwm", "omniwmctl", "focusapp", "layout", "reload", "overview", "balance", "sendshortcut",
+        "readingmode", "recordmode", "prompter",
     ]
+
+    /// Shows a short message: a pill on screen in the agent, a printed line in the CLI.
+    static var notify: ((String) -> Void)?
 
     static let omniQueue = DispatchQueue(label: "hyprmac.omniwm")
 
@@ -139,6 +143,7 @@ enum Dispatchers {
         switch dispatcher {
         case "killactive", "closewindow":
             omniCommand(["close-focused-window"])
+            refocusAfterClose()
         case "togglefloating", "setfloating", "settiled":
             omniCommand(["toggle-focused-window-floating"])
         case "fullscreen", "fullscreenstate":
@@ -236,6 +241,12 @@ enum Dispatchers {
             focusApp(arg)
         case "sendshortcut":
             sendShortcut(arg)
+        case "readingmode":
+            Modes.readingMode(arg)
+        case "recordmode":
+            Modes.recordMode(arg, config: { HyprConfig.load(path: Paths.config) })
+        case "prompter":
+            Modes.prompter(arg)
         default:
             Log.write("unknown dispatcher \(dispatcher)")
         }
@@ -285,6 +296,32 @@ enum Dispatchers {
         if let id { omniwmctl(["window", "navigate", id]) }
         else if let n = Int(workspace) { omniCommand(["switch-workspace", String(n)]) }
         else { omniCommand(["switch-workspace", workspace == "down" ? "next" : "prev"]) }
+    }
+
+    /// When the closed window was its app's last (Finder, say), macOS leaves that app active with nothing
+    /// focused. Hyprland moves focus to the next window on the workspace; do the same.
+    private static func refocusAfterClose() {
+        for _ in 0..<6 {
+            usleep(100_000)
+            if focusedWindowID() != nil { return }
+        }
+        let ws = omniwmctl(["query", "workspaces", "--current", "--fields", "id", "--format", "json"])
+        guard let wsData = ws.output.data(using: .utf8),
+              let wsJSON = try? JSONSerialization.jsonObject(with: wsData) as? [String: Any],
+              let payload = (wsJSON["result"] as? [String: Any])?["payload"] as? [String: Any],
+              let wsID = (payload["workspaces"] as? [[String: Any]])?.first?["id"] as? String else { return }
+        let r = omniwmctl(["query", "windows", "--workspace", wsID, "--fields", "id,focus-rank", "--format", "json"])
+        guard r.ok, let data = r.output.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) else { return }
+        var found: [(String, Int)] = []
+        func walk(_ v: Any) {
+            if let d = v as? [String: Any] {
+                if let id = d["id"] as? String, id.hasPrefix("ow_") { found.append((id, d["focusRank"] as? Int ?? Int.max)) }
+                d.values.forEach(walk)
+            } else if let a = v as? [Any] { a.forEach(walk) }
+        }
+        walk(json)
+        if let next = found.min(by: { $0.1 < $1.1 })?.0 { omniwmctl(["window", "focus", next]) }
     }
 
     private static func focusedWindowID() -> String? {

@@ -52,6 +52,17 @@ final class Notice {
 
     func hide() { panel?.orderOut(nil) }
 
+    private var flashToken = 0
+    /// Show a message briefly.
+    func flash(_ text: String, seconds: Double = 1.6) {
+        flashToken += 1
+        let token = flashToken
+        show(text)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            if self?.flashToken == token { self?.hide() }
+        }
+    }
+
     /// Height taken at the top of the screen: the menu bar, or a bar drawn over it (OmniWM's workspace bar,
     /// SketchyBar), which macOS leaves out of visibleFrame when the menu bar hides itself.
     static func topInset(_ screen: NSScreen) -> CGFloat {
@@ -80,14 +91,24 @@ final class Daemon: NSObject, NSApplicationDelegate {
     var mtimes: [String: Date] = [:]
     let errorNotice = Notice(color: NSColor(calibratedRed: 0.75, green: 0.12, blue: 0.16, alpha: 0.95), atTop: true)
     let submapNotice = Notice(color: NSColor(calibratedWhite: 0.12, alpha: 0.92), atTop: false)
+    let toast = Notice(color: NSColor(calibratedWhite: 0.12, alpha: 0.92), atTop: false)
     var permissionTimer: Timer?
     var permissionTries = 0
     var hupSource: DispatchSourceSignal?
+    var omniSettingsSeen = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? FileManager.default.createDirectory(atPath: Paths.stateDir, withIntermediateDirectories: true)
         try? "\(getpid())".write(toFile: Paths.pidFile, atomically: true, encoding: .utf8)
         Log.write("HyprMac \(hyprmacVersion) starting (config \(Paths.config))")
+
+        // Record mode and the prompter don't outlast the agent, as in the AeroSpace setup they replace.
+        try? FileManager.default.removeItem(atPath: Modes.recordState)
+        try? FileManager.default.removeItem(atPath: Modes.prompterState)
+        Dispatchers.notify = { [weak self] text in
+            Log.write(text)
+            DispatchQueue.main.async { self?.toast.flash(text) }
+        }
 
         tap.onDispatch = { [weak self] bind in self?.dispatch(bind) }
         tap.onSubmap = { [weak self] name in
@@ -100,6 +121,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
         src.resume()
         hupSource = src
 
+        omniSettingsSeen = FileManager.default.fileExists(atPath: Paths.omniSettings)
         reload(reason: "startup")
         runExecOnce()
         installTap()
@@ -180,7 +202,14 @@ final class Daemon: NSObject, NSApplicationDelegate {
     }
 
     func checkForChanges() {
-        if currentMtimes() != mtimes { reload(reason: "file changed") }
+        if currentMtimes() != mtimes { reload(reason: "file changed"); return }
+        // OmniWM writes its settings only after its first-run permission window; apply ours once it has.
+        let omniReady = FileManager.default.fileExists(atPath: Paths.omniSettings)
+        if omniReady && !omniSettingsSeen {
+            reload(reason: "OmniWM settings appeared")
+            DispatchQueue.global(qos: .utility).async { OmniSettings.ensureOmniWMPickedUp() }
+        }
+        omniSettingsSeen = omniReady
     }
 
     func dispatch(_ bind: Bind) {
@@ -240,6 +269,7 @@ func cli(_ args: [String]) -> Int32 {
         let c = HyprConfig.load(path: Paths.config)
         Settings.superIs = (c.setting("hyprmac:super_key") ?? "option").lowercased()
         Log.echo = true
+        Dispatchers.notify = { print($0) }
         Dispatchers.run(d, args.dropFirst(2).joined(separator: " "), sync: true)
         if d == "exec" || d == "execr" { usleep(200_000) }
         if d == "sendshortcut" { usleep(100_000) }
@@ -266,6 +296,7 @@ func cli(_ args: [String]) -> Int32 {
         let c = HyprConfig.load(path: Paths.config)
         Settings.superIs = (c.setting("hyprmac:super_key") ?? "option").lowercased()
         print(OmniSettings.apply(c) ?? "OmniWM settings already match")
+        OmniSettings.ensureOmniWMPickedUp()
         return 0
     case "status":
         let p = runningPid()
@@ -277,6 +308,10 @@ func cli(_ args: [String]) -> Int32 {
         }
         let c = HyprConfig.load(path: Paths.config)
         print("config: \((Paths.config as NSString).abbreviatingWithTildeInPath), \(c.binds.count) binds, \(c.errors.count) errors")
+        let laptopOnly = Screens.laptopOnly()
+        print("screens: \(NSScreen.screens.map(\.localizedName).joined(separator: ", "))\(laptopOnly ? " (laptop screen only)" : "")")
+        if laptopOnly && c.bool("hyprmac:laptop_gaps") == false { print("gaps: off until another screen is connected") }
+        if Modes.recordGaps() != nil { print("record mode: on") }
         return p == nil ? 1 : 0
     case "version", "--version", "-v":
         print("HyprMac \(hyprmacVersion)")

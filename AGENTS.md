@@ -14,6 +14,7 @@ dispatcher through OmniWM's `omniwmctl`. It also writes the look-and-feel settin
 | `app/Sources/KeyTap.swift` | the event tap: matches chords, swallows them, handles repeat, scroll and submaps |
 | `app/Sources/Dispatchers.swift` | Hyprland dispatcher → `omniwmctl` translation |
 | `app/Sources/OmniSettings.swift` | line-based TOML edits of OmniWM's settings (gaps, borders, animations, workspaces) |
+| `app/Sources/Modes.swift` | reading mode, record mode (recording stage) and prompter, ported from Hunter's AeroSpace scripts |
 | `app/Sources/main.swift` | daemon (reload on save, SIGHUP, error bar, submap pill) and the `hyprmac` / `hyprctl` CLI |
 | `config/hyprland.conf` | the default config, shaped after Hunter's AeroSpace keys |
 | `install.sh`, `uninstall.sh` | install and remove everything, including the login agents |
