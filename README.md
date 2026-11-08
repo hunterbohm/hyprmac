@@ -21,10 +21,11 @@ Needs an Apple Silicon Mac with macOS 26 or later, Homebrew, and the Xcode Comma
 
 The installer:
 
-- installs OmniWM, and Ghostty if it's missing;
+- installs OmniWM, Ghostty if it's missing, and libimobiledevice (it reads your iPhone's battery);
 - builds the agent into `~/Applications/HyprMac.app`;
 - adds `hyprmac` and `hyprctl` to `~/.local/bin`;
 - copies the default config, unless you already have one;
+- puts HyprMac's battery panel in OmniWM's bar;
 - starts everything at login.
 
 macOS then asks for two permissions in System Settings → Privacy & Security:
@@ -85,6 +86,20 @@ Hyper is ⌘⌃⌥⇧ held together. Record mode and the prompter end when the a
 
 Gaps: 10 points when another screen is connected, none on the MacBook screen alone
 (`laptop_gaps = false` in `hyprmac { }`). A lone window keeps its gaps, as in Hyprland.
+
+## Bar
+
+OmniWM draws the bar. Click its battery for HyprMac's battery panel: the Mac's battery, then your
+devices, as in Apple's Batteries widget.
+
+- **iPhone and iPad**: read over Wi-Fi once a minute. The phone needs to sync with this Mac over Wi-Fi
+  (Finder → your iPhone → "Show this iPhone when on Wi-Fi") and be on the same network. A sleeping phone
+  drops off Wi-Fi now and then, so the panel keeps the last reading and says how old it is.
+- **AirPods, keyboard, mouse**: Bluetooth devices that are connected and report a battery. AirPods show
+  left, right and case. The first time, the panel has a button to give OmniWM Bluetooth access.
+
+OmniWM's bar covers the macOS menu bar, so the icons of other menu bar apps are hidden. OmniWM can
+show them inside its bar from macOS 27 on.
 
 ## Config
 

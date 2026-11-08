@@ -16,6 +16,8 @@ STATE_DIR="$HOME/.local/state/hyprmac"
 AGENTS="$HOME/Library/LaunchAgents"
 LABEL="com.hunterbohm.hyprmac"
 OMNI_LABEL="com.hunterbohm.hyprmac.omniwm"
+DEVICES_LABEL="com.hunterbohm.hyprmac.devices"
+SHARE_DIR="$HOME/.local/share/hyprmac"
 OMNI_SETTINGS="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.toml"
 START=1 WAIT=1
 for arg in "$@"; do
@@ -95,6 +97,19 @@ if [[ ! -f "$OMNI_SETTINGS" ]]; then
 fi
 [[ -f "$OMNI_SETTINGS" ]] && "$BIN_DIR/hyprmac" apply >/dev/null || true
 
+# ---- bar: the battery panel also lists your iPhone (read over Wi-Fi) and Bluetooth devices
+WIDGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/battery-details"
+if [[ -d "$WIDGET_DIR" && ! -f "$WIDGET_DIR/.hyprmac" ]]; then
+  warn "Keeping your own battery-details widget in $WIDGET_DIR (HyprMac's adds your iPhone and AirPods)"
+else
+  mkdir -p "$WIDGET_DIR"
+  cp "$REPO/bar/battery-details/init.luau" "$REPO/bar/battery-details/settings.toml" "$WIDGET_DIR/"
+  touch "$WIDGET_DIR/.hyprmac"
+fi
+"$BREW" list --formula libimobiledevice >/dev/null 2>&1 || "$BREW" install libimobiledevice >/dev/null
+mkdir -p "$SHARE_DIR"
+cp "$REPO/bar/device-batteries.py" "$SHARE_DIR/device-batteries.py"
+
 # ---- login agents
 cat > "$AGENTS/$LABEL.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -125,6 +140,21 @@ cat > "$AGENTS/$OMNI_LABEL.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+cat > "$AGENTS/$DEVICES_LABEL.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$DEVICES_LABEL</string>
+  <key>ProgramArguments</key>
+  <array><string>/usr/bin/python3</string><string>-I</string><string>$SHARE_DIR/device-batteries.py</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>60</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardErrorPath</key><string>$STATE_DIR/device-batteries.err.log</string>
+</dict>
+</plist>
+PLIST
 
 if (( START == 0 )); then
   say "Installed (not started). Start with: launchctl bootstrap gui/$(id -u) $AGENTS/$LABEL.plist"
@@ -142,10 +172,18 @@ fi
 uid="$(id -u)"
 log_start=1
 [[ -f "$STATE_DIR/hyprmac.log" ]] && log_start=$(( $(wc -l < "$STATE_DIR/hyprmac.log") + 1 ))
-launchctl bootout "gui/$uid/$OMNI_LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$uid" "$AGENTS/$OMNI_LABEL.plist" 2>/dev/null || open -g -a OmniWM
-launchctl bootout "gui/$uid/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$uid" "$AGENTS/$LABEL.plist"
+# Restart a login agent. Right after bootout, launchd can refuse the bootstrap for a moment
+# ("Bootstrap failed: 5"), so wait for the old one to go and retry.
+load_agent() {
+  launchctl bootout "gui/$uid/$1" 2>/dev/null || true
+  for _ in $(seq 1 10); do launchctl print "gui/$uid/$1" >/dev/null 2>&1 || break; sleep 0.5; done
+  for _ in $(seq 1 10); do launchctl bootstrap "gui/$uid" "$AGENTS/$1.plist" 2>/dev/null && return 0; sleep 1; done
+  warn "Could not start $1; run: launchctl bootstrap gui/$uid $AGENTS/$1.plist"
+}
+load_agent "$OMNI_LABEL"
+pgrep -x OmniWM >/dev/null || open -g -a OmniWM
+load_agent "$LABEL"
+load_agent "$DEVICES_LABEL"
 
 # ---- permissions
 say "Waiting for permissions (System Settings → Privacy & Security)"

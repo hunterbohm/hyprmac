@@ -13,6 +13,9 @@ STATE_DIR="$HOME/.local/state/hyprmac"
 AGENTS="$HOME/Library/LaunchAgents"
 LABEL="com.hunterbohm.hyprmac"
 OMNI_LABEL="com.hunterbohm.hyprmac.omniwm"
+DEVICES_LABEL="com.hunterbohm.hyprmac.devices"
+SHARE_DIR="$HOME/.local/share/hyprmac"
+WIDGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/battery-details"
 OMNI_SETTINGS="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.toml"
 PURGE=0 REMOVE_OMNI=0
 for arg in "$@"; do
@@ -25,12 +28,19 @@ done
 say() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 
 uid="$(id -u)"
-for label in "$LABEL" "$OMNI_LABEL"; do
+for label in "$LABEL" "$OMNI_LABEL" "$DEVICES_LABEL"; do
   launchctl bootout "gui/$uid/$label" 2>/dev/null || true
   rm -f "$AGENTS/$label.plist"
 done
 pkill -f "$APP/Contents/MacOS/hyprmac" 2>/dev/null || true
 say "Stopped HyprMac and removed its login items"
+
+# The battery panel with your devices goes back to OmniWM's own (only if HyprMac put it there).
+if [[ -f "$WIDGET_DIR/.hyprmac" ]]; then
+  rm -rf "$WIDGET_DIR"
+  say "Put OmniWM's own battery panel back"
+fi
+rm -rf "$SHARE_DIR"
 
 # Put back the OmniWM settings from before HyprMac changed them (OmniWM's own shortcuts were off).
 if [[ -f "$OMNI_SETTINGS.hyprmac-backup" ]]; then
