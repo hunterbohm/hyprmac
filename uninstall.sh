@@ -47,6 +47,8 @@ if [[ -f "$SHELL_TOML" ]] && grep -q '^# HyprMac bar layout' "$SHELL_TOML"; then
 fi
 TRAY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/tray"
 [[ -f "$TRAY_DIR/.hyprmac" ]] && rm -rf "$TRAY_DIR" && say "Removed the menu bar apps tray from OmniWM's bar"
+NOTIFY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/widgets/notifications"
+[[ -f "$NOTIFY_DIR/.hyprmac" ]] && rm -rf "$NOTIFY_DIR" && say "Gave the notifications panel back to OmniWM"
 rm -rf "$SHARE_DIR"
 
 # Put back the OmniWM settings from before HyprMac changed them (OmniWM's own shortcuts were off).

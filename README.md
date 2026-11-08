@@ -113,6 +113,13 @@ where the app's hidden menu bar item sits, on the right side of the screen you c
 - Quit menu bar hiders such as Thaw, Ice or Bartender: the bar shows every item itself.
 - Workspaces with no windows don't show in the bar, which leaves room for the tray on a MacBook.
 
+**Notifications**: the bell in OmniWM's bar opens your notifications. On macOS 26 OmniWM can't clear
+them itself (it looks for a part of macOS 27), and its list stops updating. The installer edits OmniWM's
+notifications panel so that its Clear All and × buttons ask HyprMac, which clears them in Notification
+Center (its panel flashes open for a moment). HyprMac also watches for notifications coming and going and
+tells the panel to update, so the bell's count stays right. If you already made your own copy of that
+panel, the installer leaves it alone.
+
 ## Config
 
 Edit `~/.config/hyprmac/hyprland.conf`. Saving applies it at once, as in Hyprland. If a line has a

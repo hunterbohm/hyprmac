@@ -124,6 +124,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
         omniSettingsSeen = FileManager.default.fileExists(atPath: Paths.omniSettings)
         reload(reason: "startup")
         Tray.start(hide: trayHidden())
+        Notifications.startWatching()
         runExecOnce()
         installTap()
 
@@ -187,7 +188,9 @@ final class Daemon: NSObject, NSApplicationDelegate {
 
     /// The bar's tray widget opens hyprmac://tray/<bundle>/<index> when you click a menu bar app.
     func application(_ application: NSApplication, open urls: [URL]) {
-        urls.forEach(Tray.handle)
+        for url in urls where url.scheme == "hyprmac" {
+            if url.host == "notifications" { Notifications.handle(url) } else { Tray.handle(url) }
+        }
     }
 
     func showErrors() {

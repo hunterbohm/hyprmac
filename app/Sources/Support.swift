@@ -15,6 +15,12 @@ enum Paths {
         if let x = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"], x.hasPrefix("/") { return x + "/omniwm/settings.toml" }
         return home + "/.config/omniwm/settings.toml"
     }()
+    /// Present when install.sh patched OmniWM's notifications panel (bar/notifications-patch.py).
+    static let patchedNotificationsMarker: String = {
+        let config = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? home + "/.config"
+        return config + "/omniwm/shell/widgets/notifications/.hyprmac"
+    }()
+    static let notificationDatabase = home + "/Library/Group Containers/group.com.apple.usernoted/db2/db"
 }
 
 enum Settings {
