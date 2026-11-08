@@ -4,7 +4,9 @@ import ApplicationServices
 // Menu bar apps inside OmniWM's bar, like Waybar's tray. OmniWM's full-width bar covers the macOS menu
 // bar, so HyprMac finds every app's menu bar item over Accessibility and hands the list to the bar's
 // `tray` widget as the `hyprmac_tray` value; the widget draws each app's icon. Clicking one opens
-// hyprmac://tray/<bundle>/<index>, and HyprMac presses the real item, so its own menu opens.
+// hyprmac://tray/<token>/<bundle>/<index>, and HyprMac presses the real item, so its own menu opens.
+// Any app or web page can open a hyprmac:// link, so a click counts only with this run's random token,
+// which only the bar receives, and only for an item the bar was shown.
 //
 // The tray shows app icons rather than pictures of the menu bar items: the hidden menu bar's items can't
 // be captured (ScreenCaptureKit fails on them), and capturing would also bring macOS screen-recording prompts.
@@ -20,6 +22,7 @@ enum Tray {
     }
 
     static let queue = DispatchQueue(label: "hyprmac.tray")
+    static let token = UUID().uuidString
 
     /// Items the bar already has its own widget for, or that belong to the tiling setup itself.
     static let skipBundles: Set<String> = [
@@ -75,9 +78,11 @@ enum Tray {
         publish()
     }
 
-    /// JSON for the bar: id, app bundle (for its icon), app name and the item's own label.
+    /// JSON for the bar: id, app bundle (for its icon), app name, the item's own label and its click link.
     private static func publish() {
-        let list: [[String: Any]] = current.map { ["id": $0.id, "bundle": $0.bundle, "name": $0.name, "title": $0.title] }
+        let list: [[String: Any]] = current.map {
+            ["id": $0.id, "bundle": $0.bundle, "name": $0.name, "title": $0.title, "url": "hyprmac://tray/\(token)/\($0.id)"]
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: list, options: [.sortedKeys]),
               let json = String(data: data, encoding: .utf8), json != lastPublished else { return }
         if Dispatchers.omniwmctl(["shell", "set", "hyprmac_tray", json], quiet: true).ok { lastPublished = json }
@@ -88,18 +93,21 @@ enum Tray {
     /// Open a menu bar item's menu, as clicking it in the macOS menu bar would.
     static func press(_ id: String) {
         queue.async {
-            let item = current.first { $0.id == id } ?? scan().first { $0.id == id }
-            guard let item else { Log.write("tray: no menu bar item \(id)"); return }
+            guard let item = current.first(where: { $0.id == id }) else { Log.write("tray: no menu bar item \(id)"); return }
             let r = AXUIElementPerformAction(item.element, kAXPressAction as CFString)
             Log.write("tray: open \(item.name) (\(item.title))\(r == .success ? "" : " failed: \(r.rawValue)")")
         }
     }
 
-    /// hyprmac://tray/<bundle>/<index>
+    /// hyprmac://tray/<token>/<bundle>/<index>
     static func handle(_ url: URL) {
         guard url.scheme == "hyprmac", url.host == "tray" else { return }
-        let id = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        if !id.isEmpty { press(id) }
+        let parts = url.path.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2, parts[0] == token else {
+            Log.write("tray: ignored a hyprmac:// link that didn't come from the bar")
+            return
+        }
+        press(parts[1])
     }
 
     // MARK: Accessibility helpers

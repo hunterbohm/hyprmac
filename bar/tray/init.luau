@@ -1,6 +1,6 @@
 -- HyprMac tray: your menu bar apps (Tailscale, CleanShot, Bitwarden...) inside OmniWM's bar.
--- HyprMac lists them as the `hyprmac_tray` value. Clicking one opens hyprmac://tray/<id>, and HyprMac
--- opens that app's real menu bar menu.
+-- HyprMac lists them as the `hyprmac_tray` value, each with its click link (it carries a token only the
+-- bar gets). Opening that link makes HyprMac open the app's real menu bar menu.
 
 local look = require("../lib/look")
 
@@ -22,10 +22,11 @@ function render(ctx)
     for _, item in list do
         if type(item) == "table" and type(item.id) == "string" and type(item.bundle) == "string" then
             local id = item.id
+            local link = if type(item.url) == "string" then item.url else "hyprmac://tray/" .. id
             row[#row + 1] = ui.stack{ key = id, w = cell, h = cell, radius = look.radius(6), hover = look.hover,
                 help = if item.title and item.title ~= item.name then item.name .. ": " .. item.title else item.name,
                 onClick = function()
-                    omniwm.open("hyprmac://tray/" .. id)
+                    omniwm.open(link)
                 end,
                 ui.icon{ app = item.bundle, w = size, h = size, placeholder = "app.dashed" } }
         end
