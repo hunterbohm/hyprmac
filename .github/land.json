@@ -1,0 +1,3 @@
+{
+  "no_ci_reason": "Mac-only Swift app with no test suite; AGENTS.md rules out macOS runners. Each change is built with app/build.sh and checked by hand on a Mac."
+}
