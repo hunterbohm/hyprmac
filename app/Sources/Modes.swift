@@ -28,6 +28,13 @@ enum Screens {
 
     static func menuBarInset(_ s: NSScreen) -> CGFloat { max(0, s.frame.maxY - s.visibleFrame.maxY) }
 
+    /// The display's UUID, which OmniWM matches per-screen settings by.
+    static func uuid(_ s: NSScreen) -> String? {
+        guard let id = s.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+              let u = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue() else { return nil }
+        return CFUUIDCreateString(nil, u) as String
+    }
+
     /// Where tiled windows can go on a screen with no gaps: below the menu bar and OmniWM's workspace bar.
     static func usableFrame(_ s: NSScreen) -> CGRect {
         var r = axFrame(s.visibleFrame)

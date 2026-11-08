@@ -86,6 +86,9 @@ Hyper is ⌘⌃⌥⇧ held together. Record mode and the prompter end when the a
 
 Gaps: 10 points when another screen is connected, none on the MacBook screen alone
 (`laptop_gaps = false` in `hyprmac { }`). A lone window keeps its gaps, as in Hyprland.
+Every screen gets the same gap below the bar: OmniWM counts the top gap from each screen's own menu bar,
+so HyprMac gives a screen whose menu bar differs from the main one (a monitor next to a MacBook with a notch)
+its own top gap in OmniWM's `[[monitorGapOverrides]]`.
 
 ## Bar
 
@@ -102,6 +105,7 @@ devices, as in Apple's Batteries widget.
 Wi-Fi, like Waybar's tray. OmniWM's bar covers the macOS menu bar, so HyprMac finds each app's menu bar
 item, shows the app's icon in the bar, and opens the app's real menu when you click it. The menu opens
 where the app's hidden menu bar item sits, on the right side of the screen.
+- When OmniWM restarts (its setup guide does that), HyprMac sends the list again within a few seconds.
 - Leave an app out with `tray_hide = Google Drive, Another App` in `hyprmac { }` (app names or bundle IDs).
 - Quit menu bar hiders such as Thaw, Ice or Bartender: the bar shows every item itself.
 - Workspaces with no windows don't show in the bar, which leaves room for the tray on a MacBook.

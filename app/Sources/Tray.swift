@@ -35,6 +35,7 @@ enum Tray {
     private static var hidden: [String] = []
     private static var current: [Item] = []
     private static var lastPublished = ""
+    private static var omniPid: pid_t = 0
     private static var timer: DispatchSourceTimer?
 
     /// Start watching menu bar items. `hide` lists apps (names or bundle IDs) to leave out.
@@ -75,6 +76,13 @@ enum Tray {
 
     private static func refresh() {
         current = scan()
+        // OmniWM forgets what it was sent when it restarts (its setup guide restarts it), so send the list again.
+        let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.barut.OmniWM").first?.processIdentifier ?? 0
+        if pid != 0 && pid != omniPid {
+            if omniPid != 0 { Log.write("tray: OmniWM restarted; sending the menu bar apps again") }
+            omniPid = pid
+            lastPublished = ""
+        }
         publish()
     }
 

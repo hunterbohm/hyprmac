@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 
 // Writes hyprland.conf's look-and-feel settings into OmniWM's settings.toml, which OmniWM reloads live.
 // The file is OmniWM's canonical TOML: `[table]` / `[[array]]` headers followed by `key = value` lines.
@@ -152,16 +153,16 @@ final class TomlLines {
         lines.replaceSubrange((r.header + 1)..<r.end, with: body)
     }
 
-    /// The `[[workspaces]]` blocks, each with its trailing `[workspaces.*]` subtables.
-    func workspaceBlocks() -> [(start: Int, end: Int)] {
+    /// The `[[name]]` blocks, each with its trailing `[name.*]` subtables.
+    func arrayBlocks(_ name: String) -> [(start: Int, end: Int)] {
         var blocks: [(Int, Int)] = []
         var i = 0
         while i < lines.count {
-            if lines[i].trimmingCharacters(in: .whitespaces) == "[[workspaces]]" {
+            if lines[i].trimmingCharacters(in: .whitespaces) == "[[\(name)]]" {
                 var e = i + 1
                 while e < lines.count {
                     if let n = TomlLines.headerName(lines[e]) {
-                        let isSub = n.hasPrefix("workspaces.") && !lines[e].trimmingCharacters(in: .whitespaces).hasPrefix("[[")
+                        let isSub = n.hasPrefix(name + ".") && !lines[e].trimmingCharacters(in: .whitespaces).hasPrefix("[[")
                         if !isSub { break }
                     }
                     e += 1
@@ -171,6 +172,19 @@ final class TomlLines {
             } else { i += 1 }
         }
         return blocks
+    }
+
+    func workspaceBlocks() -> [(start: Int, end: Int)] { arrayBlocks("workspaces") }
+
+    /// The unquoted value of `key = value` among `lines`.
+    static func value(_ lines: ArraySlice<String>, _ key: String) -> String? {
+        for l in lines {
+            let parts = l.split(separator: "=", maxSplits: 1)
+            if parts.count == 2, parts[0].trimmingCharacters(in: .whitespaces) == key {
+                return parts[1].trimmingCharacters(in: CharacterSet(charactersIn: " \""))
+            }
+        }
+        return nil
     }
 }
 
@@ -266,6 +280,7 @@ enum OmniSettings {
             // OmniWM measures the top gap from the screen edge and subtracts the menu bar first.
             t.set("gaps.outer", "top", num(g.top + menuBarHeight()))
         }
+        applyScreenTopGaps(stage == nil ? gapsOut?.top : nil, t, num)
         // A lone window keeps the gaps, as in Hyprland (OmniWM's "fill" would stretch it over them, and off
         // the recording stage). A size bigger than any screen means "fill the gapped area".
         t.set("dwindle", "singleWindowFit", "\"100000x100000\"")
@@ -334,6 +349,42 @@ enum OmniSettings {
             Log.write("could not write OmniWM settings: \(error)")
             return nil
         }
+    }
+
+    /// OmniWM subtracts each screen's own menu bar before applying the top gap. A monitor whose menu bar
+    /// auto-hides has none there (OmniWM's bar reserves its own room instead), while the MacBook's notch strip
+    /// always counts, so the global top gap, sized for the main screen, would leave extra space below the bar
+    /// on the other screen. Each screen whose menu bar differs from the main screen's gets its own top gap in
+    /// `[[monitorGapOverrides]]`; HyprMac's rows carry an id made from the display, so it can replace them.
+    private static func applyScreenTopGaps(_ top: Double?, _ t: TomlLines, _ num: (Double) -> String) {
+        for block in t.arrayBlocks("monitorGapOverrides").reversed() {
+            let row = t.lines[block.start..<block.end]
+            if let uuid = TomlLines.value(row, "monitorDisplayUUID"), TomlLines.value(row, "id") == gapRowId(uuid) {
+                t.lines.removeSubrange(block.start..<block.end)
+            }
+        }
+        guard let top, let main = NSScreen.screens.first else { return }
+        for s in NSScreen.screens.dropFirst() {
+            let inset = Screens.menuBarInset(s)
+            guard inset != Screens.menuBarInset(main), let uuid = Screens.uuid(s) else { continue }
+            // TOML can't have `monitorGapOverrides = []` and `[[monitorGapOverrides]]` tables together.
+            t.lines.removeAll { $0.trimmingCharacters(in: .whitespaces).hasPrefix("monitorGapOverrides =") }
+            if t.lines.last == "" { t.lines.removeLast() }
+            t.lines += ["", "[[monitorGapOverrides]]", "id = \"\(gapRowId(uuid))\"", "monitorDisplayUUID = \"\(uuid)\"",
+                        "monitorName = \"\(s.localizedName)\"", "outerGapTop = \(num(top + Double(inset)))", ""]
+        }
+    }
+
+    /// The same UUID every time for a display (name-based, like a version 5 UUID).
+    static func gapRowId(_ displayUUID: String) -> String {
+        var b = Array(Insecure.SHA1.hash(data: Data("hyprmac.gap.\(displayUUID.uppercased())".utf8)).prefix(16))
+        b[6] = (b[6] & 0x0F) | 0x50
+        b[8] = (b[8] & 0x3F) | 0x80
+        let h = b.map { String(format: "%02X", $0) }.joined()
+        let cuts = [8, 12, 16, 20]
+        var out = ""
+        for (i, c) in h.enumerated() { if cuts.contains(i) { out.append("-") }; out.append(c) }
+        return out
     }
 
     /// Workspace rules: make sure each listed workspace exists with its monitor and layout. Workspaces the
