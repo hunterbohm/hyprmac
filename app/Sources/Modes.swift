@@ -200,6 +200,14 @@ enum Modes {
         let frame = FocusedWindow.current()?.frame
         let screen = frame.flatMap({ Screens.screen(for: $0) }) ?? NSScreen.main
         guard let uuid = (f.count >= 3 ? f[2] : screen.flatMap(Screens.uuid))?.uppercased() else { return }
+        // Two `reserve` runs (one per display or edge) would both read the file and the last write would drop the
+        // other's room, so read, update and settings write happen under one lock.
+        let lock = open(reserveState + ".lock", O_CREAT | O_RDWR | O_CLOEXEC, 0o644)
+        guard lock >= 0 else { Dispatchers.notify?("reserve: can't open \(reserveState).lock"); return }
+        defer { close(lock) }
+        var locked: Int32
+        repeat { locked = flock(lock, LOCK_EX) } while locked != 0 && errno == EINTR
+        guard locked == 0 else { Dispatchers.notify?("reserve: can't lock \(reserveState).lock"); return }
         var all = reserved()
         var r = all[uuid] ?? (0, 0, 0, 0)
         switch side {
