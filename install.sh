@@ -58,12 +58,17 @@ fi
 
 # ---- build the agent (only when the source changed, so macOS keeps its Accessibility permission)
 mkdir -p "$APP_DIR" "$BIN_DIR" "$STATE_DIR" "$AGENTS"
-src_hash="$(cat "$REPO"/app/Sources/*.swift "$REPO"/app/Info.plist | shasum -a 256 | cut -d' ' -f1)"
+src_hash="$(cat "$REPO"/app/Sources/*.swift "$REPO"/app/Info.plist "$REPO"/app/build.sh "$REPO"/app/sign.sh | shasum -a 256 | cut -d' ' -f1)"
+# What macOS ties the Accessibility switch to; it changes only when HyprMac's signing certificate does.
+requirement() { codesign -d -r- "$1" 2>/dev/null | sed -n 's/^\(# \)\{0,1\}designated => //p'; }
+NEW_IDENTITY=0
 stamp="$STATE_DIR/build.sha256"
 if [[ ! -x "$APP/Contents/MacOS/hyprmac" || "$(cat "$stamp" 2>/dev/null)" != "$src_hash" ]]; then
   say "Building HyprMac"
+  old_req="$( [[ -d "$APP" ]] && requirement "$APP" || true)"
   build_dir="$(mktemp -d)"
   "$REPO/app/build.sh" "$build_dir" >/dev/null
+  [[ "$(requirement "$build_dir/HyprMac.app")" == "$old_req" ]] || NEW_IDENTITY=1
   rm -rf "$APP"
   mv "$build_dir/HyprMac.app" "$APP"
   rm -rf "$build_dir"
@@ -210,7 +215,12 @@ echo "    • Accessibility: turn on OmniWM and HyprMac"
 echo "    • Input Monitoring: turn on OmniWM"
 echo "    • Screen Recording (optional): turn on OmniWM for window previews in overview"
 echo "    Then press Continue in OmniWM's own permission window."
-(( REBUILT == 1 )) && echo "    (HyprMac was rebuilt, so macOS may ask for its Accessibility switch again)"
+if (( NEW_IDENTITY )); then
+  # macOS keeps showing the old switch, turned on but no longer matching HyprMac; clear it so the one switch
+  # you turn on is the right one. Later rebuilds keep the same certificate and the switch.
+  tccutil reset Accessibility com.hunterbohm.hyprmac >/dev/null 2>&1 || true
+  echo "    (HyprMac has a new signing certificate, so turn its Accessibility switch on once more)"
+fi
 ok_agent=0 ok_omni=0
 for _ in $(seq 1 $(( WAIT ? 180 : 3 ))); do
   tail -n "+$log_start" "$STATE_DIR/hyprmac.log" 2>/dev/null | grep -q "key tap installed" && ok_agent=1

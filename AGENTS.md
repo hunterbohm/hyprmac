@@ -25,9 +25,10 @@ dispatcher through OmniWM's `omniwmctl`. It also writes the look-and-feel settin
 
 ## Rules
 
-- Build with `app/build.sh OUTDIR`. It produces an ad-hoc signed app, so every rebuild changes the
-  code hash and macOS drops the Accessibility grant. The installer rebuilds only when
-  `app/Sources/*.swift` or `Info.plist` change; keep it that way.
+- Build with `app/build.sh OUTDIR`. `app/sign.sh` signs it with HyprMac's own local certificate
+  (made once, kept in `~/.config/hyprmac/signing`), so macOS keeps the Accessibility switch across
+  rebuilds. Never go back to ad-hoc signing: its requirement is the code hash, and every rebuild turned
+  the switch off. The installer clears the old switch only when the signing certificate changed.
 - Test in the hidden Mac (`ssh mini hidden-mac <job> ...`), never on Hunter's own screen. The test
   helpers (key and mouse sender, TCC grant script) live in the session scratch folder, not in this repo.
   Never run `osascript` against System Events there: it hangs on a hidden permission prompt.

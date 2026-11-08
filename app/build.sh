@@ -11,7 +11,7 @@ swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos14.0" \
   -framework AppKit -framework ApplicationServices \
   -o "$app.tmp/Contents/MacOS/hyprmac" "$here"/Sources/*.swift
 cp "$here/Info.plist" "$app.tmp/Contents/Info.plist"
-codesign --force --sign - --identifier com.hunterbohm.hyprmac "$app.tmp" >/dev/null 2>&1
+"$here/sign.sh" "$app.tmp" com.hunterbohm.hyprmac >/dev/null
 rm -rf "$app"
 mv "$app.tmp" "$app"
 echo "$app"

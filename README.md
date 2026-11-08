@@ -35,8 +35,8 @@ macOS then asks for two permissions in System Settings → Privacy & Security:
 
 OmniWM also shows its own permission window the first time. Screen Recording is optional there and
 gives overview its window previews. Press Continue, and HyprMac applies its settings by itself. The
-installer waits until both are on. Running it again is safe: it rebuilds only when the source
-changed, so macOS keeps HyprMac's permission.
+installer waits until both are on. Running it again is safe: HyprMac is signed with its own certificate
+(made once on your Mac), so macOS keeps its permission when it is rebuilt.
 
 Quit AeroSpace or yabai first, because two tiling managers fight over the same windows.
 
