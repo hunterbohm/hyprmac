@@ -145,6 +145,7 @@ Dispatchers:
   - `balance`
   - `sendshortcut, MODS, key`
   - `readingmode [max width]`, `recordmode, WxH`, `prompter, WxH`
+  - `reserve, right 336 [display UUID]`: keep room free at a screen edge for another app's panel, like Hyprland's `addreserved` (`reserve, right 0` frees it). The Hereby recorder's side strip uses it.
   - `omniwm, <any omniwmctl command>`
 - **Ignored, with a note in the log** (macOS has no match): `pseudo`, `pin`, `togglegroup`, `exit`.
 

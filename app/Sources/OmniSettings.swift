@@ -280,7 +280,7 @@ enum OmniSettings {
             // OmniWM measures the top gap from the screen edge and subtracts the menu bar first.
             t.set("gaps.outer", "top", num(g.top + menuBarHeight()))
         }
-        applyScreenTopGaps(stage == nil ? gapsOut?.top : nil, t, num)
+        applyScreenGaps(stage == nil ? gapsOut?.top : nil, reserved: stage == nil ? Modes.reserved() : [:], t, num)
         // A lone window keeps the gaps, as in Hyprland (OmniWM's "fill" would stretch it over them, and off
         // the recording stage). A size bigger than any screen means "fill the gapped area".
         t.set("dwindle", "singleWindowFit", "\"100000x100000\"")
@@ -355,23 +355,34 @@ enum OmniSettings {
     /// auto-hides has none there (OmniWM's bar reserves its own room instead), while the MacBook's notch strip
     /// always counts, so the global top gap, sized for the main screen, would leave extra space below the bar
     /// on the other screen. Each screen whose menu bar differs from the main screen's gets its own top gap in
-    /// `[[monitorGapOverrides]]`; HyprMac's rows carry an id made from the display, so it can replace them.
-    private static func applyScreenTopGaps(_ top: Double?, _ t: TomlLines, _ num: (Double) -> String) {
+    /// `[[monitorGapOverrides]]`, and a screen with room reserved at an edge (`reserve`) gets that edge's gap
+    /// widened there; HyprMac's rows carry an id made from the display, so it can replace them.
+    private static func applyScreenGaps(_ top: Double?, reserved: [String: (top: Double, right: Double, bottom: Double, left: Double)],
+                                        _ t: TomlLines, _ num: (Double) -> String) {
         for block in t.arrayBlocks("monitorGapOverrides").reversed() {
             let row = t.lines[block.start..<block.end]
             if let uuid = TomlLines.value(row, "monitorDisplayUUID"), TomlLines.value(row, "id") == gapRowId(uuid) {
                 t.lines.removeSubrange(block.start..<block.end)
             }
         }
-        guard let top, let main = NSScreen.screens.first else { return }
-        for s in NSScreen.screens.dropFirst() {
+        guard let main = NSScreen.screens.first else { return }
+        func global(_ side: String) -> Double { t.get("gaps.outer", side).flatMap(Double.init) ?? 0 }
+        for s in NSScreen.screens {
+            guard let uuid = Screens.uuid(s) else { continue }
             let inset = Screens.menuBarInset(s)
-            guard inset != Screens.menuBarInset(main), let uuid = Screens.uuid(s) else { continue }
+            let ownTop = top.flatMap { s != main && inset != Screens.menuBarInset(main) ? $0 + Double(inset) : nil }
+            let r = reserved[uuid.uppercased()] ?? (0, 0, 0, 0)
+            var fields: [String] = []
+            if ownTop != nil || r.top > 0 { fields.append("outerGapTop = \(num((ownTop ?? global("top")) + r.top))") }
+            if r.right > 0 { fields.append("outerGapRight = \(num(global("right") + r.right))") }
+            if r.bottom > 0 { fields.append("outerGapBottom = \(num(global("bottom") + r.bottom))") }
+            if r.left > 0 { fields.append("outerGapLeft = \(num(global("left") + r.left))") }
+            guard !fields.isEmpty else { continue }
             // TOML can't have `monitorGapOverrides = []` and `[[monitorGapOverrides]]` tables together.
             t.lines.removeAll { $0.trimmingCharacters(in: .whitespaces).hasPrefix("monitorGapOverrides =") }
             if t.lines.last == "" { t.lines.removeLast() }
             t.lines += ["", "[[monitorGapOverrides]]", "id = \"\(gapRowId(uuid))\"", "monitorDisplayUUID = \"\(uuid)\"",
-                        "monitorName = \"\(s.localizedName)\"", "outerGapTop = \(num(top + Double(inset)))", ""]
+                        "monitorName = \"\(s.localizedName)\""] + fields.sorted() + [""]
         }
     }
 
