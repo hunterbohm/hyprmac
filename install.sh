@@ -106,6 +106,13 @@ else
   cp "$REPO/bar/battery-details/init.luau" "$REPO/bar/battery-details/settings.toml" "$WIDGET_DIR/"
   touch "$WIDGET_DIR/.hyprmac"
 fi
+# Bar layout: OmniWM on the left of the menu bar, the Mac's own menu bar icons on the right.
+SHELL_TOML="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/shell.toml"
+if [[ ! -f "$SHELL_TOML" ]] || grep -q '^# HyprMac bar layout' "$SHELL_TOML"; then
+  cp "$REPO/bar/shell.toml" "$SHELL_TOML"
+else
+  warn "Keeping your own $SHELL_TOML (HyprMac's layout is in bar/shell.toml)"
+fi
 "$BREW" list --formula libimobiledevice >/dev/null 2>&1 || "$BREW" install libimobiledevice >/dev/null
 mkdir -p "$SHARE_DIR"
 cp "$REPO/bar/device-batteries.py" "$SHARE_DIR/device-batteries.py"

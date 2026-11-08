@@ -1,0 +1,13 @@
+# HyprMac bar layout (installed by HyprMac; delete this file to get OmniWM's full-width bar back).
+# OmniWM's bar takes the left of the menu bar (left of the notch, or the left half on a screen without
+# one). The Mac's own menu bar keeps the right side, so the clock, Wi-Fi, Control Center and the icons
+# Thaw manages stay visible. A full-width bar would cover them and turn on menu bar auto-hide.
+profiles.default.leading = ["apple-menu", "app-menu", "workspaces", "scratchpads"]
+profiles.default.center = []
+profiles.default.trailing = ["battery-details"]
+
+[profiles.default.workspaceBar]
+fullWidth = false
+notchMode = "fillLeftOfNotch"
+# Left of the MacBook's notch there is room for about eight workspaces with their app icons, not all twelve.
+hideEmptyWorkspaces = true

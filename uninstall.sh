@@ -40,6 +40,11 @@ if [[ -f "$WIDGET_DIR/.hyprmac" ]]; then
   rm -rf "$WIDGET_DIR"
   say "Put OmniWM's own battery panel back"
 fi
+SHELL_TOML="${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/shell/shell.toml"
+if [[ -f "$SHELL_TOML" ]] && grep -q '^# HyprMac bar layout' "$SHELL_TOML"; then
+  rm -f "$SHELL_TOML"
+  say "Put OmniWM's full-width bar back"
+fi
 rm -rf "$SHARE_DIR"
 
 # Put back the OmniWM settings from before HyprMac changed them (OmniWM's own shortcuts were off).
