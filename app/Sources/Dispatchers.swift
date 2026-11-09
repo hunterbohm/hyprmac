@@ -177,7 +177,15 @@ enum Dispatchers {
         }
     }
 
+    /// Dispatchers that leave every window where it is, so a predicted layout survives them.
+    private static let keepsGeometry: Set<String> = ["movewindow", "swapwindow", "movefocus", "workspace", "focusapp",
+                                                    "focuscurrentorlast", "focusurgentorlast", "cyclenext", "changegroupactive",
+                                                    "dpms", "sendshortcut"]
+
     private static func runOmni(_ dispatcher: String, _ arg: String) {
+        // Anything else may rearrange the tiles (togglesplit, resize, a window closing...), so frames predicted
+        // from the last move would be wrong: forget them and let the next move settle.
+        if !keepsGeometry.contains(dispatcher) { expectedFrames = nil }
         switch dispatcher {
         case "killactive", "closewindow":
             omniCommand(["close-focused-window"])
