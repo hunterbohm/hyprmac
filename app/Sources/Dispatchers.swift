@@ -56,11 +56,15 @@ enum Dispatchers {
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = pipe
+        p.standardInput = FileHandle.nullDevice
+        // Not `waitUntilExit()`: it polls the run loop and added ~65 ms to every call (omniwmctl itself takes ~8 ms).
+        let exited = DispatchSemaphore(value: 0)
+        p.terminationHandler = { _ in exited.signal() }
         do { try p.run() } catch {
             return Result(status: 126, output: "\(error)")
         }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        p.waitUntilExit()
+        exited.wait()
         let out = String(data: data, encoding: .utf8) ?? ""
         // "ignored: no_change" (e.g. switching to the workspace you are on) is not a failure worth logging.
         if p.terminationStatus != 0 && !quiet && !out.contains("ignored") {
@@ -158,8 +162,8 @@ enum Dispatchers {
                 return
             }
             guard let d = direction(arg) else { return Log.write("\(dispatcher): bad direction '\(arg)'") }
-            if focusedWorkspaceLayout() == "dwindle" {
-                moveDwindleWindow(d)
+            if let ws = focusedWorkspace(), ws.layout == "dwindle" {
+                moveDwindleWindow(d, workspace: ws.number)
             } else if d == "up" || d == "down" {
                 omniCommand(["move-column", d], ["move-window-\(d)"])
             } else {
@@ -281,8 +285,6 @@ enum Dispatchers {
         return (n, layout)
     }
 
-    private static func focusedWorkspaceLayout() -> String? { focusedWorkspace()?.layout }
-
     private static func tiles(workspace: Int) -> [Tile] {
         guard let list = queryJSON(["windows", "--workspace", String(workspace), "--visible"])?["windows"] as? [[String: Any]] else { return [] }
         return list.compactMap { w in
@@ -300,66 +302,68 @@ enum Dispatchers {
             && abs(a.width - b.width) <= tolerance && abs(a.height - b.height) <= tolerance
     }
 
-    /// Wait for OmniWM's animation. Its frames are live, so: wait up to `startWithin` for the focused
-    /// window's frame to leave `before` (it does within ~50 ms when a move happens), then until every
-    /// tile has held still for three polls. Returns the settled tiles and whether the window moved.
-    private static func settle(workspace: Int, focusedBefore before: CGRect, startWithin: TimeInterval = 0.4, limit: TimeInterval = 1.5) -> (tiles: [Tile], moved: Bool) {
+    private static var lastDwindleMove = Date.distantPast
+
+    /// OmniWM's frames are live, so a window still animating from the last key press reports mid-flight
+    /// numbers. Within 1.2 s of our last move, wait until it has had 150 ms to start and two polls in a row agree; otherwise one read is enough.
+    private static func settledTiles(workspace: Int, limit: TimeInterval = 1.2) -> [Tile] {
+        // Nothing of ours can still be animating, or hasn't started yet (it starts ~50 ms after the command).
+        let sinceMove = Date().timeIntervalSince(lastDwindleMove)
+        if sinceMove > 1.2 { return tiles(workspace: workspace) }
+        if sinceMove < 0.15 { Thread.sleep(forTimeInterval: 0.15 - sinceMove) }
         let begin = Date()
-        var moved = false
-        var last: [Tile] = []
-        var holds = 0
+        var last = tiles(workspace: workspace)
         while Date().timeIntervalSince(begin) < limit {
+            Thread.sleep(forTimeInterval: 0.03)
             let now = tiles(workspace: workspace)
-            if let f = now.first(where: { $0.focused }), !same(f.frame, before) { moved = true }
-            if moved {
-                let still = now.count == last.count && zip(now, last).allSatisfy { $0.id == $1.id && same($0.frame, $1.frame, tolerance: 0.5) }
-                holds = still ? holds + 1 : 0
-                if holds >= 3 { return (now, true) }
-            } else if Date().timeIntervalSince(begin) >= startWithin {
-                return (now, false)
-            }
+            if now.count == last.count && zip(now, last).allSatisfy({ $0.id == $1.id && same($0.frame, $1.frame, tolerance: 0.5) }) { return now }
             last = now
-            Thread.sleep(forTimeInterval: 0.04)
         }
-        return (last, moved)
+        return last
     }
 
-    /// AeroSpace-style `move` for Dwindle. If a tile is next to the window in that direction, `move-column`
-    /// swaps with it. If not, and the window's only partner sits across the other axis (two windows side by
-    /// side and J pressed), flip the split so the window lands below/above/left/right of the partner, and swap
-    /// the two if it ended up on the wrong side. A window already at the edge of its row stays put.
+    /// AeroSpace-style `move` for Dwindle, decided from the settled layout and sent without waiting on the
+    /// animation. If a tile is next to the window in that direction, `move-column` swaps with it. If not,
+    /// and the window's partner sits across the other axis (two windows side by side and J pressed), flip
+    /// the split so the window lands below/above/left/right of the partner, plus `swap-split` when it would
+    /// land on the wrong side. A window already at the edge of its row stays put.
     /// (`move` can't be used here: in Dwindle it joins the neighbor's tab group instead of swapping.)
-    private static func moveDwindleWindow(_ d: String) {
-        guard let ws = focusedWorkspace()?.number else { return omniCommand(["move-column", d]) }
-        let before = tiles(workspace: ws)
-        guard let focused = before.first(where: { $0.focused }) else { return omniCommand(["move-column", d]) }
-        omniCommand(["move-column", d])
-        let first = settle(workspace: ws, focusedBefore: focused.frame)
-        if first.moved { return }
+    private static func moveDwindleWindow(_ d: String, workspace ws: Int) {
+        let now = settledTiles(workspace: ws)
+        defer { lastDwindleMove = Date() }
+        guard let f = now.first(where: { $0.focused })?.frame else { return omniCommand(["move-column", d]) }
+        let others = now.filter { !$0.focused }
+        let tol: CGFloat = 8
+        let horizontal = d == "left" || d == "right"
+
+        func overlap(_ a: ClosedRange<CGFloat>, _ b: ClosedRange<CGFloat>) -> Bool { min(a.upperBound, b.upperBound) - max(a.lowerBound, b.lowerBound) > tol }
+        // Cocoa coordinates: up is a larger y.
+        let hasNeighbor = others.contains { t in
+            switch d {
+            case "right": return t.frame.minX >= f.maxX - tol && overlap(t.frame.minY...t.frame.maxY, f.minY...f.maxY)
+            case "left": return t.frame.maxX <= f.minX + tol && overlap(t.frame.minY...t.frame.maxY, f.minY...f.maxY)
+            case "up": return t.frame.minY >= f.maxY - tol && overlap(t.frame.minX...t.frame.maxX, f.minX...f.maxX)
+            default: return t.frame.maxY <= f.minY + tol && overlap(t.frame.minX...t.frame.maxX, f.minX...f.maxX)
+            }
+        }
+        if hasNeighbor { return omniCommand(["move-column", d]) }
 
         // No tile that way. The partner to flip against shares the window's extent across the move axis.
-        let horizontal = d == "left" || d == "right"
-        let tol: CGFloat = 8
-        let partner = before.filter { t in
-            guard !t.focused else { return false }
-            return horizontal
-                ? abs(t.frame.minX - focused.frame.minX) <= tol && abs(t.frame.width - focused.frame.width) <= tol
-                : abs(t.frame.minY - focused.frame.minY) <= tol && abs(t.frame.height - focused.frame.height) <= tol
+        let partner = others.filter { t in
+            horizontal
+                ? abs(t.frame.minX - f.minX) <= tol && abs(t.frame.width - f.width) <= tol
+                : abs(t.frame.minY - f.minY) <= tol && abs(t.frame.height - f.height) <= tol
         }.min { a, b in
-            hypot(a.frame.midX - focused.frame.midX, a.frame.midY - focused.frame.midY)
-                < hypot(b.frame.midX - focused.frame.midX, b.frame.midY - focused.frame.midY)
+            hypot(a.frame.midX - f.midX, a.frame.midY - f.midY) < hypot(b.frame.midX - f.midX, b.frame.midY - f.midY)
         }
-        guard let partner else { return }
+        guard let p = partner else { return }
 
+        // toggle-split keeps child order: the first child is the left / lower tile, the second the right / upper
+        // one (Cocoa coordinates). So the window ends up left or lower if it is first now, right or upper if second.
+        let isFirst = horizontal ? f.midY < p.frame.midY : f.midX < p.frame.midX
+        let wantFirst = d == "left" || d == "down"
         omniCommand(["toggle-split"])
-        let flipped = settle(workspace: ws, focusedBefore: focused.frame)
-        guard flipped.moved, let f = flipped.tiles.first(where: { $0.focused })?.frame,
-              let p = flipped.tiles.first(where: { $0.id == partner.id })?.frame else { return }
-        // Cocoa coordinates: up is a larger y.
-        let separation = horizontal ? p.midX - f.midX : p.midY - f.midY
-        guard abs(separation) > tol else { return }
-        let onFarSide = (d == "right" || d == "up") ? separation < 0 : separation > 0
-        if !onFarSide { omniCommand(["swap-split"]) }
+        if isFirst != wantFirst { omniCommand(["swap-split"]) }
     }
 
     private static func workspace(_ arg: String) {
