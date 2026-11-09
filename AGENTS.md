@@ -37,6 +37,7 @@ dispatcher through OmniWM's `omniwmctl`. It also writes the look-and-feel settin
   Never run `osascript` against System Events there: it hangs on a hidden permission prompt.
 - OmniWM's `settings.toml` uses a strict schema. Only set keys that exist in OmniWM's defaults, and keep
   its own hotkeys off (`hotkeysEnabled = false`) so the two don't fight over keys.
+- `movewindow` on Dwindle uses `move-column` (swaps with the neighbor tile, does nothing at an edge), never `move`: in Dwindle, `move` joins the neighbor's tab group and hides the other window. When nothing moved, `moveDwindleWindow` flips the split (`toggle-split`) and `swap-split`s if the window landed on the wrong side. Niri workspaces keep `move-column`.
 - `omniwmctl` frames use a bottom-left origin (Cocoa coordinates), so in its output a larger `y` is
   higher on the screen.
 - The phone job may only query phones macOS already trusts (it checks usbmuxd for a pairing record

@@ -55,7 +55,7 @@ CTRL is Control. You can also name a Mac key directly with `OPTION`, `COMMAND`, 
 | ⌥ ⇧ Return / ⌥ E | browser / new Finder window |
 | ⌥ B C T O D | jump to Helium, Codex, Ghostty, Obsidian, Vesktop (opens the app if it has no window) |
 | ⌥ H J K L | move focus |
-| ⌥ ⇧ H J K L | move the window |
+| ⌥ ⇧ H J K L | move the window: swaps with the tile that way; on a dwindle workspace with nothing there, it goes beside, above or below its partner (like AeroSpace) |
 | ⌥ ⌃ H J K L | move the window into a stack |
 | ⌥ 1–9, 0 | go to workspace 1–10 (⌃ 1–0 too) |
 | ⌥ ⇧ 1–9, 0 | send the window to that workspace and go with it |
