@@ -113,7 +113,10 @@ final class Daemon: NSObject, NSApplicationDelegate {
 
         tap.onDispatch = { [weak self] bind in self?.dispatch(bind) }
         tap.onSubmap = { [weak self] name in
-            if name.isEmpty { self?.submapNotice.hide() } else { self?.submapNotice.show("submap: \(name)   (Esc to leave)") }
+            // Drawing waits for the key tap's callback to return.
+            DispatchQueue.main.async {
+                if name.isEmpty { self?.submapNotice.hide() } else { self?.submapNotice.show("submap: \(name)   (Esc to leave)") }
+            }
         }
 
         signal(SIGHUP, SIG_IGN)
@@ -237,11 +240,14 @@ final class Daemon: NSObject, NSApplicationDelegate {
         omniSettingsSeen = omniReady
     }
 
+    /// Called from the key tap's callback, which must return at once. Submaps change right here (the next key
+    /// press already resolves against the new one); reload runs on the main thread after the callback; everything
+    /// else is queued on `Dispatchers.omniQueue`, which runs binds one at a time in the order they were pressed.
     func dispatch(_ bind: Bind) {
         Log.write("bind \(bind.mods.resolve(superIs: Settings.superIs).symbols)\(bind.key.label) -> \(bind.dispatcher) \(bind.arg)")
         Dispatchers.run(bind.dispatcher, bind.arg,
                         submapHandler: { [weak self] name in self?.tap.setSubmap(name) },
-                        reload: { [weak self] in self?.reload(reason: "reload bind") })
+                        reload: { DispatchQueue.main.async { [weak self] in self?.reload(reason: "reload bind") } })
     }
 }
 

@@ -46,9 +46,21 @@ final class KeyTap {
         if keyTable[submap] == nil && scrollTable[submap] == nil && !submap.isEmpty { setSubmap("") }
     }
 
+    /// Switch submap. The name changes at once, so the next key press resolves against it; `onSubmap` (which
+    /// draws the pill) is the caller's to push to the main thread.
     func setSubmap(_ name: String) {
         submap = name
         onSubmap?(name)
+    }
+
+    /// Run a bind. The callback must return at once (macOS holds every key press until it does), so the
+    /// dispatch only queues work. Anything over 1 ms is logged, so a bind that starts doing real work here shows.
+    private func fire(_ bind: Bind, since began: UInt64) {
+        onDispatch?(bind)
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - began) / 1_000_000
+        if ms > 1 {
+            Log.write(String(format: "slow key tap: %.1f ms for %@%@", ms, bind.mods.resolve(superIs: Settings.superIs).symbols, bind.key.label))
+        }
     }
 
     @discardableResult
@@ -70,6 +82,7 @@ final class KeyTap {
     }
 
     fileprivate func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
+        let began = DispatchTime.now().uptimeNanoseconds
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             if let t = tap { CGEvent.tapEnable(tap: t, enable: true) }
@@ -92,7 +105,7 @@ final class KeyTap {
                 let bind = scrollAccum < 0 ? entry.down : entry.up
                 scrollAccum = 0
                 lastScrollFire = Date()
-                if let b = bind { onDispatch?(b) }
+                if let b = bind { fire(b, since: began) }
             }
             return nil
         }
@@ -110,7 +123,7 @@ final class KeyTap {
         swallowedKeyUps.insert(code)
         let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
         if isRepeat && !bind.repeats { return nil }
-        onDispatch?(bind)
+        fire(bind, since: began)
         return nil
     }
 }

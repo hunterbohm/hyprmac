@@ -33,7 +33,7 @@ enum Log {
     static var echo = false
 
     static func write(_ message: String) {
-        let line = "\(stamp()) \(message)\n"
+        let line = "\(stamp(Date())) \(message)\n"
         if echo { FileHandle.standardError.write(line.data(using: .utf8)!) }
         queue.async {
             try? FileManager.default.createDirectory(atPath: Paths.stateDir, withIntermediateDirectories: true)
@@ -59,11 +59,14 @@ enum Log {
         return h
     }
 
-    private static func stamp() -> String {
+    // One formatter: building one costs more than the rest of a log call, and Log runs inside the key tap.
+    private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        return f.string(from: Date())
-    }
+        return f
+    }()
+
+    private static func stamp(_ date: Date) -> String { formatter.string(from: date) }
 }
 
 /// Seconds since boot identifier, used to run exec-once lines once per login session rather than per restart.
