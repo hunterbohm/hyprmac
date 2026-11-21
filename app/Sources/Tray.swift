@@ -144,13 +144,17 @@ enum Tray {
             if !standIn { live = true }
             found.append((bundle, name, standIn ? nil : title(el), frame(child), el, false))
         }
-        // An app's items are numbered left to right, the same way on every screen's bar.
+        // An app's items are numbered left to right, the same way on every screen's bar. A live activity
+        // isn't counted, so one appearing doesn't renumber the app's items (and unpin them).
         var counts: [String: Int] = [:]
         let items = found.sorted { $0.frame.minX < $1.frame.minX }.map { f -> Item in
-            let i = counts[f.bundle, default: 0]
-            counts[f.bundle] = i + 1
-            return Item(id: f.activity ? "\(f.bundle)/activity" : "\(f.bundle)/\(i)", bundle: f.bundle, name: f.name,
-                        title: f.title ?? f.name, frame: f.frame, element: f.element)
+            var id = "\(f.bundle)/activity"
+            if !f.activity {
+                let i = counts[f.bundle, default: 0]
+                counts[f.bundle] = i + 1
+                id = "\(f.bundle)/\(i)"
+            }
+            return Item(id: id, bundle: f.bundle, name: f.name, title: f.title ?? f.name, frame: f.frame, element: f.element)
         }
         return (items, live)
     }
