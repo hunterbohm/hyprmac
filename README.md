@@ -108,6 +108,8 @@ where the app's hidden menu bar item sits, on the right side of the screen you c
 - macOS keeps menu bar items only on the screen whose menu bar is active. When you click the tray on
   another screen, HyprMac first focuses that screen's window, or clicks its bare desktop when it has none,
   so the menu opens there.
+- On macOS 27 the tray also shows items macOS tucks behind its own overflow arrow, and live activities
+  (T3 Code's agents, for one) under their app's icon.
 - When OmniWM restarts (its setup guide does that), HyprMac sends the list again within a few seconds.
 - Like Omarchy's tray, apps sit in a drawer behind a `‹` arrow until you pin them. Point at the arrow and
   the drawer slides open to its left; it closes a moment after the pointer leaves. Right-click an app to
