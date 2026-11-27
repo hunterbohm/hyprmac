@@ -25,8 +25,8 @@ if ! version="$(git -C "$here" describe --tags --exact-match HEAD 2>/dev/null)" 
     printf 'A release needs HEAD on a release tag like v0.2.0.\n' >&2
     exit 1
 fi
-if [[ -n "$(git -C "$here" status --porcelain --untracked-files=no)" ]]; then
-    printf 'Not releasing: the clone has uncommitted changes, so the build would not match %s.\n' "$version" >&2
+if [[ -n "$(git -C "$here" status --porcelain)" ]]; then
+    printf 'Not releasing: the clone has uncommitted or untracked files, so the build would not match %s.\n' "$version" >&2
     exit 1
 fi
 missing=()

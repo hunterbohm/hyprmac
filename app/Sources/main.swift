@@ -146,7 +146,7 @@ final class Daemon: NSObject, NSApplicationDelegate {
         Notifications.startWatching()
         Banners.start()
         // Signed releases look for a newer release once a day; `check_updates = false` in `hyprmac { }` turns it off.
-        Updater.startChecking(enabled: { [weak self] in self?.config.bool("hyprmac:check_updates") != false }) { [weak self] version in
+        Updater.startChecking(enabled: { DispatchQueue.main.sync { [weak self] in self?.config.bool("hyprmac:check_updates") != false } }) { [weak self] version in
             DispatchQueue.main.async { self?.toast.flash("HyprMac \(version.text) is available. Run: hyprctl update", seconds: 15) }
         }
         runExecOnce()
