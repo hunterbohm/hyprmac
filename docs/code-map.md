@@ -22,7 +22,9 @@ row before changing that file, and the function notes before changing the code t
 | `bar/tray/`, `bar/shell.toml` | the tray widget and the bar layout that places it; installed into `~/.config/omniwm/shell/`. The widget keeps pinned item ids (`<bundle>/<index>`) in its OmniWM store; the rest go in a drawer that opens on hover |
 | `bar/device-batteries.py` | login agent, every minute: iPhone battery over Wi-Fi via libimobiledevice → `omniwmctl shell set hyprmac_devices` |
 | `config/hyprland.conf` | the default config, shaped after Hunter's AeroSpace keys |
-| `install.sh`, `uninstall.sh` | install and remove everything, including the login agents |
+| `app/Sources/Updater.swift` | `hyprctl update` and the daily check for signed releases: only a build signed with a Developer ID (own team id from its code signature) updates; a source build never does. The download URL is built from the release tag; `verify` checks bundle id, exact version, newer, Developer ID requirement for the same team, and `spctl` "Notarized Developer ID" before the new app's own `install.sh` runs. See `docs/RELEASING.md` |
+| `release.sh`, `docs/RELEASING.md` | builds `app/build.sh` unsigned (`HYPRMAC_UNSIGNED=1`), puts `install.sh`, `uninstall.sh`, `bar/`, `config/` in the bundle's Resources, signs with Developer ID, notarizes, staples, zips, self-checks the zip with `hyprmac update --verify`, uploads to GitHub |
+| `install.sh`, `uninstall.sh` | install and remove everything, including the login agents. Run from `HyprMac.app/Contents/Resources` (a release), `install.sh` installs that signed app instead of building |
 
 ## Function notes
 

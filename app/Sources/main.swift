@@ -1,8 +1,16 @@
 import AppKit
 import ApplicationServices
 
-/// The version in the app's Info.plist (release.sh stamps it from the tag); a bare binary reports 0.1.0.
-let hyprmacVersion = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0.1.0"
+/// The version in the app's Info.plist (release.sh stamps it from the tag). `hyprctl` is a symlink into the app, so find
+/// the bundle from the executable's real path, not from Bundle.main.
+let hyprmacVersion: String = {
+    var size: UInt32 = 4096
+    var buffer = [CChar](repeating: 0, count: Int(size))
+    guard _NSGetExecutablePath(&buffer, &size) == 0 else { return "0.1.0" }
+    let executable = URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath()
+    let plist = executable.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Info.plist")
+    return ((NSDictionary(contentsOf: plist) as? [String: Any])?["CFBundleShortVersionString"] as? String) ?? "0.1.0"
+}()
 
 // MARK: - On-screen notices (Hyprland shows config errors in a red bar; submaps get a small pill)
 

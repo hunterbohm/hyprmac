@@ -43,6 +43,7 @@ enum Updater {
 
     enum Failure: Error, CustomStringConvertible {
         case network(String)
+        case status(Int)
         case feed
         case archive(String)
         case identity(String)
@@ -54,6 +55,8 @@ enum Updater {
         var description: String {
             switch self {
             case .network(let why): "could not reach GitHub: \(why)"
+            case .status(404): "no release has been published yet"
+            case .status(let code): "GitHub answered \(code)"
             case .feed: "GitHub's latest release did not name a version"
             case .archive(let why): "the download is not a usable app: \(why)"
             case .identity(let id): "the downloaded app is \(id), not HyprMac"
@@ -145,7 +148,7 @@ enum Updater {
         session.dataTask(with: request) { data, response, error in
             if let error { result = .failure(.network(error.localizedDescription)) }
             else if (response as? HTTPURLResponse)?.statusCode == 200, let data { result = .success(data) }
-            else { result = .failure(.network("GitHub answered \((response as? HTTPURLResponse)?.statusCode ?? 0)")) }
+            else { result = .failure(.status((response as? HTTPURLResponse)?.statusCode ?? 0)) }
             done.signal()
         }.resume()
         done.wait()
@@ -159,7 +162,7 @@ enum Updater {
             defer { done.signal() }
             if let error { result = .failure(.network(error.localizedDescription)); return }
             guard (response as? HTTPURLResponse)?.statusCode == 200, let temporary else {
-                result = .failure(.network("GitHub answered \((response as? HTTPURLResponse)?.statusCode ?? 0)")); return
+                result = .failure(.status((response as? HTTPURLResponse)?.statusCode ?? 0)); return
             }
             let size = (try? FileManager.default.attributesOfItem(atPath: temporary.path)[.size] as? Int64) ?? 0
             guard size > 0, size <= maxArchiveBytes else { result = .failure(.archive("it is \(size) bytes")); return }

@@ -15,14 +15,24 @@ Needs an Apple Silicon Mac with macOS 26 or later, Homebrew, and the Xcode Comma
 
 ## Install
 
+Needs Homebrew (it installs OmniWM). Pick one:
+
+**Download (signed and notarized by Apple, no Xcode tools needed)**
+
+1. Download `HyprMac-<version>.zip` from the [latest release](https://github.com/hunterbohm/hyprmac/releases/latest) and unzip it.
+2. Run `HyprMac.app/Contents/Resources/install.sh`. It checks the app is notarized, copies it to `~/Applications`
+   and sets everything up.
+
+**From source** (needs the Xcode Command Line Tools)
+
 ```sh
 ./install.sh
 ```
 
-The installer:
+Both do the same setup:
 
 - installs OmniWM, Ghostty if it's missing, and libimobiledevice (it reads your iPhone's battery);
-- builds the agent into `~/Applications/HyprMac.app`;
+- puts `HyprMac.app` in `~/Applications` (built from source, or the signed download);
 - adds `hyprmac` and `hyprctl` to `~/.local/bin`;
 - copies the default config, unless you already have one;
 - puts HyprMac's battery panel and menu bar apps tray in OmniWM's bar;
@@ -35,8 +45,19 @@ macOS then asks for two permissions in System Settings → Privacy & Security:
 
 OmniWM also shows its own permission window the first time. Screen Recording is optional there and
 gives overview its window previews. Press Continue, and HyprMac applies its settings by itself. The
-installer waits until both are on. Running it again is safe: HyprMac is signed with its own certificate
-(made once on your Mac), so macOS keeps its permission when it is rebuilt.
+installer waits until both are on. Running it again is safe. A source build is signed with its own
+certificate (made once on your Mac), so macOS keeps its permission when it is rebuilt. Switching between a
+source build and a download changes who signed HyprMac, so turn its Accessibility switch on once more; updates
+between downloads keep it.
+
+### Updates
+
+A downloaded copy checks GitHub for a newer release about once a day and shows "HyprMac X is available".
+`hyprctl update` then downloads it and installs it, and `hyprctl update --check` only looks. It installs a
+release only if that release is notarized by Apple, signed by the same Apple developer team as the copy you
+are running, has the same bundle id, and is newer. Anything else is refused. Turn the check off with
+`check_updates = false` inside `hyprmac { }`. A build from source never updates itself: `git pull`, then
+`./install.sh`.
 
 Quit AeroSpace or yabai first, because two tiling managers fight over the same windows.
 
