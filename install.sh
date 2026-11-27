@@ -1,6 +1,8 @@
 #!/bin/bash
 # HyprMac installer: OmniWM (the tiling window manager) + the HyprMac agent that reads hyprland.conf.
 # Safe to run again; it rebuilds the agent only when its source changed and never overwrites your config.
+# Run from a downloaded release (HyprMac.app/Contents/Resources/install.sh) it installs that signed app instead of
+# building one, so it needs no Xcode tools.
 #
 #   ./install.sh            install or update
 #   ./install.sh --no-start install files but leave the agent and OmniWM stopped
@@ -37,7 +39,10 @@ die()  { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
 [[ "$(uname -m)" == arm64 ]] || die "OmniWM needs an Apple Silicon Mac"
 major="$(sw_vers -productVersion | cut -d. -f1)"
 (( major >= 26 )) || die "OmniWM needs macOS 26 or later (this Mac runs $(sw_vers -productVersion))"
-xcrun --find swiftc >/dev/null 2>&1 || die "Xcode Command Line Tools are missing: run 'xcode-select --install', then this again"
+# A release app carries its own copy of this script (and bar/, config/) in Contents/Resources.
+BUNDLE=""
+if [[ -x "$REPO/../MacOS/hyprmac" && ! -d "$REPO/app/Sources" ]]; then BUNDLE="$(cd "$REPO/../.." && pwd -P)"; fi
+[[ -n "$BUNDLE" ]] || xcrun --find swiftc >/dev/null 2>&1 || die "Xcode Command Line Tools are missing: run 'xcode-select --install', then this again"
 BREW="$(command -v brew || true)"
 [[ -z "$BREW" && -x /opt/homebrew/bin/brew ]] && BREW=/opt/homebrew/bin/brew
 [[ -n "$BREW" ]] || die "Homebrew is missing: install it from https://brew.sh, then run this again"
@@ -56,26 +61,48 @@ if [[ ! -d /Applications/Ghostty.app ]] && ! "$BREW" list --cask ghostty >/dev/n
   xattr -dr com.apple.quarantine /Applications/Ghostty.app 2>/dev/null || true
 fi
 
-# ---- build the agent (only when the source changed, so macOS keeps its Accessibility permission)
+# ---- the agent: build it (only when the source changed, so macOS keeps its Accessibility permission), or take the
+# signed app this script shipped inside
 mkdir -p "$APP_DIR" "$BIN_DIR" "$STATE_DIR" "$AGENTS"
-src_hash="$(cat "$REPO"/app/Sources/*.swift "$REPO"/app/Info.plist "$REPO"/app/build.sh "$REPO"/app/sign.sh | shasum -a 256 | cut -d' ' -f1)"
 # What macOS ties the Accessibility switch to; it changes only when HyprMac's signing certificate does.
 requirement() { codesign -d -r- "$1" 2>/dev/null | sed -n 's/^\(# \)\{0,1\}designated => //p'; }
 NEW_IDENTITY=0
 stamp="$STATE_DIR/build.sha256"
-if [[ ! -x "$APP/Contents/MacOS/hyprmac" || "$(cat "$stamp" 2>/dev/null)" != "$src_hash" ]]; then
-  say "Building HyprMac"
-  old_req="$( [[ -d "$APP" ]] && requirement "$APP" || true)"
-  build_dir="$(mktemp -d)"
-  "$REPO/app/build.sh" "$build_dir" >/dev/null
-  [[ "$(requirement "$build_dir/HyprMac.app")" == "$old_req" ]] || NEW_IDENTITY=1
-  rm -rf "$APP"
-  mv "$build_dir/HyprMac.app" "$APP"
-  rm -rf "$build_dir"
-  echo "$src_hash" > "$stamp"
-  REBUILT=1
+if [[ -n "$BUNDLE" ]]; then
+  # Refuse an app Gatekeeper would refuse: a release is Developer ID signed and notarized.
+  spctl --assess --type execute "$BUNDLE" 2>/dev/null || die "$BUNDLE is not a signed, notarized HyprMac release; get it from https://github.com/hunterbohm/hyprmac/releases"
+  src_hash="release-$(cat "$BUNDLE/Contents/MacOS/hyprmac" "$BUNDLE/Contents/Info.plist" | shasum -a 256 | cut -d' ' -f1)"
+  if [[ "$BUNDLE" == "$(cd "$APP" 2>/dev/null && pwd -P)" ]]; then
+    REBUILT=0   # already running from the installed app
+  elif [[ ! -x "$APP/Contents/MacOS/hyprmac" || "$(cat "$stamp" 2>/dev/null)" != "$src_hash" ]]; then
+    say "Installing HyprMac $(plutil -extract CFBundleShortVersionString raw -o - "$BUNDLE/Contents/Info.plist")"
+    old_req="$( [[ -d "$APP" ]] && requirement "$APP" || true)"
+    [[ "$(requirement "$BUNDLE")" == "$old_req" ]] || NEW_IDENTITY=1
+    rm -rf "$APP_DIR/.HyprMac.app.new"
+    ditto --noqtn "$BUNDLE" "$APP_DIR/.HyprMac.app.new"
+    rm -rf "$APP"
+    mv "$APP_DIR/.HyprMac.app.new" "$APP"
+    echo "$src_hash" > "$stamp"
+    REBUILT=1
+  else
+    REBUILT=0
+  fi
 else
-  REBUILT=0
+  src_hash="$(cat "$REPO"/app/Sources/*.swift "$REPO"/app/Info.plist "$REPO"/app/build.sh "$REPO"/app/sign.sh | shasum -a 256 | cut -d' ' -f1)"
+  if [[ ! -x "$APP/Contents/MacOS/hyprmac" || "$(cat "$stamp" 2>/dev/null)" != "$src_hash" ]]; then
+    say "Building HyprMac"
+    old_req="$( [[ -d "$APP" ]] && requirement "$APP" || true)"
+    build_dir="$(mktemp -d)"
+    "$REPO/app/build.sh" "$build_dir" >/dev/null
+    [[ "$(requirement "$build_dir/HyprMac.app")" == "$old_req" ]] || NEW_IDENTITY=1
+    rm -rf "$APP"
+    mv "$build_dir/HyprMac.app" "$APP"
+    rm -rf "$build_dir"
+    echo "$src_hash" > "$stamp"
+    REBUILT=1
+  else
+    REBUILT=0
+  fi
 fi
 ln -sf "$APP/Contents/MacOS/hyprmac" "$BIN_DIR/hyprmac"
 ln -sf "$APP/Contents/MacOS/hyprmac" "$BIN_DIR/hyprctl"

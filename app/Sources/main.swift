@@ -1,7 +1,8 @@
 import AppKit
 import ApplicationServices
 
-let hyprmacVersion = "0.1.0"
+/// The version in the app's Info.plist (release.sh stamps it from the tag); a bare binary reports 0.1.0.
+let hyprmacVersion = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0.1.0"
 
 // MARK: - On-screen notices (Hyprland shows config errors in a red bar; submaps get a small pill)
 
@@ -136,6 +137,10 @@ final class Daemon: NSObject, NSApplicationDelegate {
         Tray.start(hide: trayHidden())
         Notifications.startWatching()
         Banners.start()
+        // Signed releases look for a newer release once a day; `check_updates = false` in `hyprmac { }` turns it off.
+        Updater.startChecking(enabled: { [weak self] in self?.config.bool("hyprmac:check_updates") != false }) { [weak self] version in
+            DispatchQueue.main.async { self?.toast.flash("HyprMac \(version.text) is available. Run: hyprctl update", seconds: 15) }
+        }
         runExecOnce()
         installTap()
 
@@ -265,6 +270,7 @@ func printUsage() {
       check [file]           check a config for errors
       apply                  write the config's look and feel into OmniWM now
       status                 show whether the agent runs and has permission
+      update [--check]       install the newest signed release (--check only looks); source builds don't update
       version
 
     config: \((Paths.config as NSString).abbreviatingWithTildeInPath)
@@ -343,7 +349,11 @@ func cli(_ args: [String]) -> Int32 {
         print("screens: \(NSScreen.screens.map(\.localizedName).joined(separator: ", "))\(laptopOnly ? " (laptop screen only)" : "")")
         if laptopOnly && c.bool("hyprmac:laptop_gaps") == false { print("gaps: off until another screen is connected") }
         if Modes.recordGaps() != nil { print("record mode: on") }
+        if let version = Updater.pending() { print("update: HyprMac \(version.text) is available; run: hyprctl update") }
         return p == nil ? 1 : 0
+    case "update":
+        if args.count == 4, args[1] == "--verify" { return Updater.verifyCommand(zip: args[2], tag: args[3]) }
+        return Updater.command(checkOnly: args.dropFirst().contains("--check"))
     case "version", "--version", "-v":
         print("HyprMac \(hyprmacVersion)")
         return 0
