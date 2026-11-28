@@ -1,5 +1,6 @@
 #!/bin/bash
 # Build HyprMac.app. usage: app/build.sh [output-dir]   (default: build/)
+# HYPRMAC_UNSIGNED=1 leaves it unsigned; release.sh then signs it with the Developer ID certificate.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out="${1:-$here/../build}"
@@ -11,7 +12,7 @@ swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos14.0" \
   -framework AppKit -framework ApplicationServices \
   -o "$app.tmp/Contents/MacOS/hyprmac" "$here"/Sources/*.swift
 cp "$here/Info.plist" "$app.tmp/Contents/Info.plist"
-"$here/sign.sh" "$app.tmp" com.hunterbohm.hyprmac >/dev/null
+[[ "${HYPRMAC_UNSIGNED:-}" == 1 ]] || "$here/sign.sh" "$app.tmp" com.hunterbohm.hyprmac >/dev/null
 rm -rf "$app"
 mv "$app.tmp" "$app"
 echo "$app"
